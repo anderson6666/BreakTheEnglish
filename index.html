@@ -3910,16 +3910,27 @@ function enterBattle(){
   const targetTotalHP = keepTimeSec * heroDPS;          // 小怪总血量目标
   const minionCount = Math.max(3, Math.round(targetTotalHP / minionHP));
 
-  // 生成小怪：排在屏幕顶部同一z（同时逼近），x方向自适应分散（始终在可视宽度内）
-  const maxWidth = 7.5;                                   // 可视半宽
-  const spacing = minionCount>1 ? Math.min(1.5, maxWidth*2/(minionCount-1)) : 0;
-  for(let i=0;i<minionCount;i++){
-    const x = (i - (minionCount-1)/2) * spacing;
-    const m = buildMinion(CONFIG[level].color);
-    m.position.set(x, 0, SPAWN_Z);
-    scene.add(m);
-    enemies.push({group:m, hp:minionHP, maxHp:minionHP, atk:minionATK,
-                  speed:MINION_SPEED, type:'minion', alive:true, nextMelee:0});
+  // 生成小怪：排列成"列×行"方阵，全部落在屏幕可视范围内
+  // 可视深度范围：屏幕顶部约 z=-10.5（SPAWN_Z），底部约 z=-2（避免贴脸战士）
+  // 每行最多 COLS 个，x方向自适应分散在可视半宽内；多余按行向屏幕下方(z增大)排开
+  const COLS = 6;                                          // 每行最多列数
+  const ROWS = Math.ceil(minionCount / COLS);              // 需要的行数
+  const zTop = SPAWN_Z + 0.8;                              // 最前排(z最小,靠屏幕顶部)
+  const zBottom = -2.2;                                    // 最后排限界(不得逼近战士视觉范围)
+  const rowStep = Math.min(1.1, (zBottom - zTop) / Math.max(1, ROWS - 1));  // 行间距(自适应挤进可视深度)
+  let idx = 0;
+  for(let row=0; row<ROWS && idx<minionCount; row++){
+    const colsThis = Math.min(COLS, minionCount - idx);
+    const xSpacing = colsThis>1 ? Math.min(1.5, 7.5*2/(colsThis-1)) : 0;
+    for(let c=0; c<colsThis; c++, idx++){
+      const x = (c - (colsThis-1)/2) * xSpacing;
+      const z = zTop + row * rowStep;                       // 靠屏幕下方的行 z 较大
+      const m = buildMinion(CONFIG[level].color);
+      m.position.set(x, 0, z);
+      scene.add(m);
+      enemies.push({group:m, hp:minionHP, maxHp:minionHP, atk:minionATK,
+                    speed:MINION_SPEED, type:'minion', alive:true, nextMelee:0});
+    }
   }
   // 生成BOSS：在小怪后方
   const bossMesh = buildMonster(CONFIG[level].color, r);
