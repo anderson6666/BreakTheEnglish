@@ -3707,10 +3707,27 @@ function startRun(k){
 }
 
 /* ============ 词汇题 ============ */
+// 校验词条有效：中文释义必须含中文字符，且英文不夹带清洗残留字符
+function isBadEntry(en, zh){
+  if(typeof zh!=='string'||!zh) return true;
+  if(!/[\u4e00-\u9fff]/.test(zh)) return true;        // 释义无中文 = 异常(如 "n&v"、"n"、"adj")
+  if(/[\[\]]/.test(zh)) return true;                    // 残留脏括号
+  if(typeof en!=='string'||!/^[a-zA-Z][a-zA-Z' -]*$/.test(en)) return true;
+  return false;
+}
+function validPool(){
+  const pool=DATA[level].slice();
+  return pool.filter(c=>!isBadEntry(c[0],c[1]));
+}
 function pickWord(){
-  const list=DATA[level]; let w=null;
-  for(let i=0;i<list.length;i++){ const c=list[(Math.random()*list.length)|0]; if(!usedWords.has(c[0])){ w=c; break; } }
-  if(!w){ usedWords.clear(); w=list[(Math.random()*list.length)|0]; }
+  const valid=validPool(); let w=null;
+  // 优先从当前等级有效词里抽取
+  for(let i=0;i<valid.length;i++){ const c=valid[(Math.random()*valid.length)|0]; if(!usedWords.has(c[0])){ w=c; break; } }
+  if(!w){
+    // 打完了，清空重来但绝不用坏词
+    usedWords.clear();
+    const c=valid[(Math.random()*valid.length)|0]; if(c) w=c;
+  }
   usedWords.add(w[0]); curWord=w;
 }
 function showQuestion(){
@@ -3719,9 +3736,9 @@ function showQuestion(){
   const showEn = Math.random()<0.5; // true:给英文选中文; false:给中文选英文
   const question = showEn?`指译：“${en}”`:`译回：“${zh}”`;
   const correct = showEn?zh:en;
-  // 混淆项：从同等级随机抽含义
-  const opts=[correct]; const pool=DATA[level].slice();
-  while(opts.length<4){
+  // 混淆项：从同等级有效词里随机抽含义（避免出现 "n&v" 等脏数据）
+  const opts=[correct]; const pool=validPool();
+  while(opts.length<4 && opts.length<pool.length){
     const c=pool[(Math.random()*pool.length)|0];
     const cand = showEn?c[1]:c[0];
     if(!opts.includes(cand)) opts.push(cand);
@@ -3828,15 +3845,25 @@ function enterBattle(){
   clearEnemies();
   // 计算本关数值：小怪先逼近，BOSS在后，必须打得过但会掉一部分血
   const r = P.round;
-  const minionCount = 3 + r;                                          // 每回合+1小怪
   const minionHP = Math.ceil(2 + P.weapon * 0.5);                     // 小怪血量随武器小幅增长
   const bossHP   = Math.ceil(5 + P.weapon * 1.5 + r * 2);             // BOSS血量随武器和回合增长
   const minionATK= 1;
   const bossATK  = 1 + Math.floor(r / 2);
+  // 解压式多小怪：小怪数量随输出(伤害+攻速)增加，但总清怪时长基本恒定
+  // 基准局(weapon=1)3只小怪、总血量9，战士DPS=1/0.55≈1.82 → 清怪约5s
+  // 之后每局：小怪总血量 ≈ 清怪时长(固定) × 当前DPS，让"打得久一点但更爽"
+  const BASIS_HP = 9;                                   // 基准小怪总血量
+  const BASIS_DPS = 1 / ATTACK_INTERVAL;                // 基准DPS(weapon=1)
+  const keepTimeSec = BASIS_HP / BASIS_DPS;             // 期望清怪秒数(≈4.95s)
+  const heroDPS = P.weapon / heroAttackInterval();      // 当前每秒输出
+  const targetTotalHP = keepTimeSec * heroDPS;          // 小怪总血量目标
+  const minionCount = Math.max(3, Math.round(targetTotalHP / minionHP));
 
-  // 生成小怪：排在屏幕顶部同一z（同时逼近），x方向分散
+  // 生成小怪：排在屏幕顶部同一z（同时逼近），x方向自适应分散（始终在可视宽度内）
+  const maxWidth = 7.5;                                   // 可视半宽
+  const spacing = minionCount>1 ? Math.min(1.5, maxWidth*2/(minionCount-1)) : 0;
   for(let i=0;i<minionCount;i++){
-    const x = (i - (minionCount-1)/2) * 1.5;
+    const x = (i - (minionCount-1)/2) * spacing;
     const m = buildMinion(CONFIG[level].color);
     m.position.set(x, 0, SPAWN_Z);
     scene.add(m);
