@@ -3495,6 +3495,24 @@ function leg(x){const s=0.24;const g=new THREE.Group();
 /* ============ 武器可视化（随 P.weapon 变化） ============ */
 const WEAPON_COLORS = [0xc0c0c0, 0xa8e6ff, 0x5eead4, 0xffd27a, 0xff7a7a, 0xc084fc, 0xff5c7a];
 const WEAPON_NAMES = ['铁剑','青铜剑','青寒刃','黄金圣剑','烈焰怒剑','紫电秘剑','绯红魔剑'];
+const TIER_ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X'];
+// 武器名称无限循环：基础名按等级循环，每满一轮提升一个阶段后缀(无尽头)
+function weaponName(lv){
+  const base = WEAPON_NAMES[lv % WEAPON_NAMES.length];
+  const tier = Math.floor(lv / WEAPON_NAMES.length);
+  if(tier===0) return base;
+  const suffix = tier <= TIER_ROMAN.length ? TIER_ROMAN[tier-1] : 'Lv'+tier;
+  return base + ' ·' + suffix;
+}
+// 主色无限循环，并随阶段提升微调色相
+function weaponColor(lv){
+  const base = WEAPON_COLORS[lv % WEAPON_COLORS.length];
+  const tier = Math.floor(lv / WEAPON_COLORS.length);
+  if(tier===0) return base;
+  const c = new THREE.Color(base);
+  c.offsetHSL(tier*0.07 % 1, 0, Math.min(tier*0.03, 0.15)); // 逐阶段微提亮度/色相
+  return c.getHex();
+}
 function weaponLevel(){ return Math.round(Math.log2(Math.max(1,P.weapon))); }
 // 随武器等级提升的攻速：等级越高，攻击间隔越短
 function heroAttackInterval(){
@@ -3515,8 +3533,7 @@ function updateHeroWeapon(){
   const lv = weaponLevel();
   const mainScale = 0.7 + lv * 0.18;
   const glow = 0.15 + lv * 0.12;
-  const colorIdx = Math.min(lv, WEAPON_COLORS.length-1);
-  const color = WEAPON_COLORS[colorIdx];
+  const color = weaponColor(lv);
   // 主武器：一把剑（右手）
   const sword = new THREE.Group();
   const bladeMat = new THREE.MeshStandardMaterial({color, roughness:.3, metalness:.8, emissive:color, emissiveIntensity:glow});
@@ -3733,9 +3750,9 @@ function answer(choice, correct, btn){
 /* ============ 加成二选一 ============ */
 function showUpgrade(){
   const lv = weaponLevel();
-  const name = WEAPON_NAMES[Math.min(lv, WEAPON_NAMES.length-1)];
+  const name = weaponName(lv);
   const newLv = lv+1;
-  const newName = WEAPON_NAMES[Math.min(newLv, WEAPON_NAMES.length-1)];
+  const newName = weaponName(newLv);
   const atkNow=P.weapon, atkNext=P.weapon*2;
   const spdNow=heroAttackSpeedMult().toFixed(1), spdNext=(1/Math.pow(ATK_SPEED_FACTOR,newLv)).toFixed(1);
   ui.innerHTML=`
@@ -3832,7 +3849,7 @@ function enterBattle(){
 }
 function showBattle(){
   const boss = enemies.find(e=>e.type==='boss');
-  const name = WEAPON_NAMES[Math.min(weaponLevel(), WEAPON_NAMES.length-1)];
+  const name = weaponName(weaponLevel());
   ui.innerHTML=`
     <div class="bar-row top"><div class="bar-label">🛡 我方生命</div>
       <div class="bar hero"><i id="bhb"></i></div></div>
@@ -3982,7 +3999,7 @@ function punch(from,to,dur,cb){
   const center = to.clone().add(from).multiplyScalar(0.5);
   const dir = to.clone().sub(from).normalize();
   // 同色发光斩击波束（武士刀挥砍感）
-  const dotColor = WEAPON_COLORS[Math.min(lv, WEAPON_COLORS.length-1)];
+  const dotColor = weaponColor(lv);
   const beamLen = 0.8 + lv*0.35;                 // 波束长度随等级变长
   const beamThick = 0.1 + lv*0.04;               // 波束粗细随等级变粗
   const beam = new THREE.Mesh(
