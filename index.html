@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>词汇勇者：拖拽进门闯关</title>
+<style>
+  :root{
+    --accent:#8b7bff; --accent2:#5eead4;
+    --danger:#f87171; --ok:#34d399;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; user-select:none;}
+  html,body{width:100%;height:100%;overflow:hidden;background:radial-gradient(1200px 800px at 50% -10%,#2a2a4d 0%,#17172b 55%,#0d0d1a 100%);
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;color:#eaeaff;}
+  #app{position:fixed;inset:0;}
+  #game{position:absolute;inset:0;display:block;}
+  /* 覆盖 UI */
+  #ui{position:absolute;inset:0;pointer-events:none;}
+  .panel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(92vw,460px);
+    background:rgba(20,20,40,.82);border:1px solid rgba(139,123,255,.35);border-radius:16px;
+    padding:24px;text-align:center;backdrop-filter:blur(8px);box-shadow:0 18px 60px rgba(0,0,0,.55);
+    pointer-events:auto;animation:pop .25s ease;}
+  @keyframes pop{from{transform:translate(-50%,-50%) scale(.92);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
+  #ui.hidden, .hidden{display:none!important;}
+  h1.title{font-size:26px;letter-spacing:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:6px;}
+  .sub{font-size:13px;opacity:.7;margin-bottom:20px;}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;}
+  .lvl-btn,.opt-btn,.act-btn,.upgrade-btn{background:linear-gradient(180deg,rgba(139,123,255,.22),rgba(139,123,255,.08));
+    border:1px solid rgba(139,123,255,.45);color:#fff;border-radius:10px;padding:12px 10px;cursor:pointer;
+    font-size:15px;transition:.15s;width:100%;}
+  .lvl-btn:hover,.opt-btn:hover,.upgrade-btn:hover,.act-btn:hover{background:rgba(139,123,255,.35);transform:translateY(-1px)}
+  .lvl-btn b{display:block;font-size:16px;margin-bottom:2px;}
+  .lvl-btn small{opacity:.65;font-weight:400;font-size:11px;}
+  .lvl-btn.sel{outline:2px solid var(--accent2);}
+  .q-en{font-size:30px;font-weight:700;margin-bottom:4px;letter-spacing:1px;}
+  .q-zh{font-size:24px;font-weight:600;margin-bottom:18px;color:var(--accent2);}
+  .opt-btn{margin-top:8px;text-align:left;font-size:16px;}
+  .opt-btn.correct{background:var(--ok);border-color:var(--ok);color:#06281c;}
+  .opt-btn.wrong{background:var(--danger);border-color:var(--danger);}
+  .hint{font-size:13px;margin-top:12px;opacity:.85;min-height:18px;}
+  .upgrade-btn{border-radius:14px;padding:18px 12px;font-size:17px;}
+  .upgrade-btn u{display:block;font-size:12px;opacity:.75;margin-top:4px;text-decoration:none;}
+  .upgrade-btn.w2{background:linear-gradient(180deg,rgba(248,113,113,.28),rgba(248,113,113,.08));border-color:#f87171;}
+  .upgrade-btn.ammo{background:linear-gradient(180deg,rgba(52,211,153,.26),rgba(52,211,153,.08));border-color:#34d399;}
+  .upgrade-btn.w2:hover{background:rgba(248,113,113,.4)}
+  .upgrade-btn.ammo:hover{background:rgba(52,211,153,.4)}
+  /* 血条 */
+  .bar-row{position:absolute;left:50%;transform:translateX(-50%);margin-top:14px;}
+  .bar-row.far top, .bar-row.top{top:12px;} .bar-row.bottom{bottom:12px;}
+  .bar{width:min(70vw,360px);height:14px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.18);
+    border-radius:8px;overflow:hidden;}
+  .bar>i{display:block;height:100%;width:100%;transition:width .3s;}
+  .bar.hero>i{background:linear-gradient(90deg,var(--accent2),#3dd8ff);}
+  .bar.mon>i{background:linear-gradient(90deg,#ff5c7a,var(--danger));}
+  .bar-label{font-size:13px;margin-bottom:4px;text-align:center;font-weight:600;}
+  /* 战斗状态栏 */
+  #vsbar{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;}
+  .vs-item{display:inline-block;background:rgba(20,20,40,.7);border:1px solid rgba(255,255,255,.15);border-radius:10px;
+    padding:8px 16px;min-width:170px;}
+  .vs-item.mon{background:rgba(60,10,20,.7);border-color:rgba(248,113,113,.4)}
+  .float{position:absolute;transform:translate(-50%,-50%);font-weight:800;text-shadow:0 2px 6px rgba(0,0,0,.6);
+    pointer-events:none;z-index:5;font-size:22px;animation:floatUp 1s ease forwards;}
+  .float.dmg{color:#ffd27a;} .float.heal{color:#5eead4;} .float.hit{color:#ff7a7a;}
+  @keyframes floatUp{0%{opacity:0;transform:translate(-50%,-30%)}15%{opacity:1}100%{opacity:0;transform:translate(-50%,-180%)}}
+  .run-name{position:absolute;top:6px;left:12px;font-size:13px;opacity:.8;}
+  .score-chip{position:absolute;top:6px;right:12px;font-size:13px;color:var(--accent2);}
+  .tip-bottom{position:absolute;bottom:56px;left:50%;transform:translateX(-50%);font-size:13px;opacity:.85;text-align:center;}
+  .btn-row{display:flex;gap:10px;justify-content:center;margin-top:16px;}
+  .btn-main{background:linear-gradient(90deg,var(--accent),#6c5ce7);border:none;color:#fff;border-radius:10px;
+    padding:12px 22px;font-size:15px;cursor:pointer;}
+  .btn-main:hover{filter:brightness(1.1);transform:translateY(-1px)}
+  .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:10px;padding:12px 18px;cursor:pointer;font-size:14px;}
+  .btn-ghost:hover{background:rgba(255,255,255,.08)}
+  .big-num{font-size:48px;font-weight:800;color:var(--accent2);margin:6px 0;}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+  <div id="ui"></div>
+</div>
+
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ============ 词汇题库：{ en, zh } 元组对象数组，按等级分组 ============ */
+const DATA = {
+  "小学": [
+    ["apple","苹果"],["banana","香蕉"],["cat","猫"],["dog","狗"],["book","书本"],["water","水"],
+    ["sun","太阳"],["moon","月亮"],["red","红色"],["blue","蓝色"],["happy","快乐的"],["school","学校"],
+    ["teacher","老师"],["student","学生"],["friend","朋友"],["family","家庭"],["mother","妈妈"],["father","爸爸"],
+    ["hand","手"],["foot","脚"],["tiger","老虎"],["panda","熊猫"],["milk","牛奶"],["rice","米饭"],
+    ["fish","鱼"],["bird","鸟"],["tree","树"],["flower","花"],["rain","雨"],["snow","雪"],
+    ["one","一"],["big","大的"],["small","小的"],["run","跑"],["jump","跳"],["sing","唱歌"],["eat","吃"],
+    ["door","门"],["window","窗户"],["chair","椅子"],["table","桌子"],["car","汽车"],["bus","公交车"]
+  ],
+  "初中": [
+    ["important","重要的"],["although","尽管"],["between","在…之间"],["country","国家"],["different","不同的"],
+    ["environment","环境"],["favorite","最喜爱的"],["usually","通常"],["never","从不"],["expensive","昂贵的"],
+    ["weather","天气"],["boring","无聊的"],["excited","兴奋的"],["foreign","外国的"],["government","政府"],
+    ["honest","诚实的"],["improve","改进"],["knowledge","知识"],["modern","现代的"],["often","经常"],
+    ["popular","流行的"],["question","问题"],["return","归还"],["special","特别的"],["though","虽然"],
+    ["useful","有用的"],["visit","参观"],["wonder","想知道"],["agree","同意"],["arrive","到达"],
+    ["beautiful","美丽的"],["careful","仔细的"],["dangerous","危险的"],["decide","决定"],["everything","一切"],
+    ["friendly","友好的"],["health","健康"],["language","语言"],["medicine","药"],["nature","自然"],
+    ["passport","护照"],["polite","有礼貌的"],["purpose","目的"],["reason","原因"],["safety","安全"]
+  ],
+  "高中": [
+    ["abandon","放弃"],["absolutely","绝对地"],["academic","学术的"],["access","获取"],["acknowledge","承认"],
+    ["adapt","适应"],["adequate","充足的"],["admire","钦佩"],["advocate","提倡"],["affect","影响"],
+    ["alternative","备选的"],["ambition","抱负"],["analyze","分析"],["ancient","古代的"],["anxiety","焦虑"],
+    ["apparent","明显的"],["approximately","大约"],["appropriate","恰当的"],["argue","争论"],["arise","出现"],
+    ["assess","评估"],["assume","假定"],["atmosphere","气氛"],["attach","附带"],["beneath","在下方"],
+    ["candidate","候选人"],["challenge","挑战"],["circumstance","情况"],["comment","评论"],["commercial","商业的"],
+    ["conclude","得出结论"],["consequence","后果"],["constant","持续的"],["consume","消耗"],["contribute","贡献"],
+    ["crucial","关键的"],["currency","货币"],["decrease","减少"],["define","定义"],["deliberately","故意地"],
+    ["demonstrate","证明"],["despite","尽管"],["distinguish","区分"],["dominate","支配"],["dramatic","戏剧性的"]
+  ],
+  "四级": [
+    ["abstract","抽象的"],["accommodate","容纳"],["accumulate","积累"],["accurate","精确的"],["acquire","获得"],
+    ["aggressive","好斗的"],["allocate","分配"],["ambassbank","大使"],["ambiguous","模棱两可的"],["analogy","类比"],
+    ["anonymous","匿名的"],["anticipate","预期"],["applause","掌声"],["arbitrary","任意的"],["ascertain","查明"],
+    ["aspiration","渴望"],["assert","断言"],["authentic","真实的"],["budget","预算"],["coincide","一致"],
+    ["collaborate","协作"],["commence","开始"],["commodity","商品"],["comprehensive","全面的"],["conceive","设想"],
+    ["confidential","机密的"],["consensus","共识"],["contradict","反驳"],["controversy","争议"],["criterion","标准"],
+    ["deduce","推断"],["defect","缺陷"],["deficit","赤字"],["delegate","代表"],["deposit","存款"],
+    ["derive","源于"],["dilemma","困境"],["diminish","减少"],["discrepancy","差异"],["distort","歪曲"]
+  ],
+  "六级": [
+    ["abolish","废除"],["abrupt","突然的"],["absurd","荒谬的"],["adverse","不利的"],["alleviate","减轻"],
+    ["ambiguously","模糊地"],["articulate","清晰表达"],["assimilate","同化"],["augment","增大"],["bias","偏见"],
+    ["bypass","绕过"],["catalyst","催化剂"],["circumvent","规避"],["clandestine","秘密的"],["coherent","连贯的"],
+    ["collide","碰撞"],["compassion","同情"],["compensate","补偿"],["complacent","自满的"],["compliance","服从"],
+    ["comprehend","理解"],["concede","承认"],["condemn","谴责"],["confiscate","没收"],["congregate","聚集"],
+    ["conscientious","认真负责的"],["conservative","保守的"],["consistent","一致的"],["constraint","约束"],["contemplate","沉思"],
+    ["contempt","轻视"],["contingency","偶发事件"],["contradiction","矛盾"],["cumulative","累积的"],["curtail","削减"],
+    ["deficient","不足的"],["degenerate","退化"],["delineate","描绘"],["denounce","指责"],["depict","刻画"]
+  ]
+};
+
+/* ============ 数字/等级配置 ============ */
+const CONFIG = {
+  "小学":{baseHP:8, baseATK:1, hpGrow:1, atkGrow:0, color:0x5eead4},
+  "初中":{baseHP:12,baseATK:1, hpGrow:2, atkGrow:0, color:0x8b7bff},
+  "高中":{baseHP:16,baseATK:2, hpGrow:3, atkGrow:1, color:0xffa24d},
+  "四级":{baseHP:24,baseATK:2, hpGrow:4, atkGrow:1, color:0xff5c7a},
+  "六级":{baseHP:32,baseATK:3, hpGrow:5, atkGrow:2, color:0xc084fc}
+};
+const HP_INTENSITY = 0.6;       // 怪物HP随武器强度的系数
+const USE_BALLS_PER_ROUND = 4;  // 加子弹：+4
+const HEAL_PER_WIN = 2;
+
+/* ============ 全局状态 ============ */
+let state = "menu";               // menu|room|question|upgrade|battle
+let level = null;                 // 当前等级
+let P = { weapon:1, maxBullets:5, bullets:5, score:0, round:0, correct:0, wrong:0 };
+let monster = null;               // {hp,maxHp,atk,name}
+let usedWords = new Set();
+let curWord = null;
+let dragging = false, dragOffset = new THREE.Vector3();
+let battleBusy = false;
+
+/* ============ Three.js 基础 ============ */
+const canvas = document.getElementById('game');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x0d0d1a, 26, 46);
+const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 100);
+camera.position.set(0, 10, 12); camera.lookAt(0,0,0);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x2a2a5a, 1.05));
+const dir = new THREE.DirectionalLight(0xfff2cc, 1.2); dir.position.set(6,14,6); scene.add(dir);
+const amb = new THREE.AmbientLight(0xffffff, 0.25); scene.add(amb);
+
+/* ============ 地格与道具 ============ */
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(20,20), new THREE.MeshStandardMaterial({color:0x23234a,roughness:.9}));
+floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; scene.add(floor);
+const grid = new THREE.GridHelper(20,20,0x3d3d6e,0x2a2a52); grid.position.y=0.01; scene.add(grid);
+// 四壁装饰柱
+[[-9,-6],[9,-6],[-9,6],[9,6]].forEach(([x,z])=>{
+  const p = new THREE.Mesh(new THREE.BoxGeometry(.4,3,.4), new THREE.MeshStandardMaterial({color:0x3a3a6a}));
+  p.position.set(x,1.5,z); scene.add(p);
+});
+
+/* ============ 小人物模型 ============ */
+const heroGroup = new THREE.Group();
+const heroSkin = new THREE.MeshStandardMaterial({color:0xffd9a8, roughness:.6});
+const heroShirt = new THREE.MeshStandardMaterial({color:0x8b7bff, roughness:.6});
+const heroPants = new THREE.MeshStandardMaterial({color:0x3d3d6e, roughness:.7});
+function arm(x){const s=0.22;const g=new THREE.Group();
+  const m=new THREE.Mesh(new THREE.CapsuleGeometry(s,.3,2,6), heroShirt); m.position.y=-0.2; g.add(m);
+  g.position.set(x,1.15,0); return g;}
+function leg(x){const s=0.24;const g=new THREE.Group();
+  const m=new THREE.Mesh(new THREE.BoxGeometry(s*2,.6,s*2), heroPants); m.position.y=-0.3; g.add(m);
+  g.position.set(x,0.35,0); return g;}
+(function buildHero(){
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(.42,.5,4,8), heroShirt); body.position.y=1.05; heroGroup.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.36,20,16), heroSkin); head.position.y=1.72; heroGroup.add(head);
+  // 眼睛
+  const eyeM=new THREE.MeshStandardMaterial({color:0x1b1b2a});
+  const e1=new THREE.Mesh(new THREE.SphereGeometry(.06,8,8),eyeM);e1.position.set(-0.12,1.78,0.3);heroGroup.add(e1);
+  const e2=new THREE.Mesh(new THREE.SphereGeometry(.06,8,8),eyeM);e2.position.set(0.12,1.78,0.3);heroGroup.add(e2);
+  heroGroup.add(arm(-0.62)); heroGroup.add(arm(0.62));
+  heroGroup.add(leg(-0.24)); heroGroup.add(leg(0.24));
+  heroGroup.position.set(0,0.7,3);
+  scene.add(heroGroup);
+})();
+
+/* ============ 门的模型 ============ */
+const doorGroup = new THREE.Group();
+const doorGlow = new THREE.Mesh(new THREE.PlaneGeometry(2.2,3.2), new THREE.MeshBasicMaterial({color:0x8b7bff, transparent:true, opacity:.25, side:THREE.DoubleSide}));
+doorGlow.position.set(0,0,0.16);
+doorGroup.add(doorGlow);
+const frameM = new THREE.MeshStandardMaterial({color:0x6c5ce7, roughness:.4, emissive:0x2a1f66, emissiveIntensity:.4});
+const frame= new THREE.Mesh(new THREE.BoxGeometry(2.6,.5,.5), frameM); frame.position.y=3.05; doorGroup.add(frame);
+const doorPanel= new THREE.Mesh(new THREE.BoxGeometry(2.0,3.2,0.25), new THREE.MeshStandardMaterial({color:0x4a3fb0,roughness:.5}));
+doorGroup.add(doorPanel);
+const knob= new THREE.Mesh(new THREE.SphereGeometry(.14,12,12), new THREE.MeshStandardMaterial({color:0xffd700,metalness:.8,roughness:.3}));
+knob.position.set(0.6,0.1,0.18); doorGroup.add(knob);
+doorGroup.position.set(0,0,-4.5);
+scene.add(doorGroup);
+const doorBox = new THREE.Box3().setFromObject(doorPanel);
+
+/* ============ 怪物素材（战斗时创建） ============ */
+let monsterGroup = null;
+function buildMonster(color, round){
+  const g = new THREE.Group();
+  const skin = new THREE.MeshStandardMaterial({color, roughness:.55, emissive:color, emissiveIntensity:.12});
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.6,1.6,1.6), skin); body.position.y=1.3; g.add(body);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(1.1,1.1,1.1), skin); head.position.y=2.4; g.add(head);
+  // 眼睛
+  const eyeM=new THREE.MeshStandardMaterial({color:round%2?0x1b1b2a:0xffd700});
+  const e1=new THREE.Mesh(new THREE.SphereGeometry(.16,12,12),eyeM);e1.position.set(-0.3,2.5,0.55);g.add(e1);
+  const e2=e1.clone();e2.position.set(0.3,2.5,0.55);g.add(e2);
+  // 角
+  const hornM=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.4});
+  const h1=new THREE.Mesh(new THREE.ConeGeometry(.18,.5,8),hornM);h1.position.set(-0.4,3.0,0);h1.rotation.z=0.25;g.add(h1);
+  const h2=new THREE.Mesh(new THREE.ConeGeometry(.18,.5,8),hornM);h2.position.set(0.4,3.0,0);h2.rotation.z=-0.25;g.add(h2);
+  // 双手
+  const armM=new THREE.MeshStandardMaterial({color});
+  const a1=new THREE.Mesh(new THREE.BoxGeometry(.5,1.8,.5),armM);a1.position.set(-1.1,1.2,0);g.add(a1);
+  const a2=a1.clone();a2.position.set(1.1,1.2,0);g.add(a2);
+  // 血条通常是HTML，这里加个头顶小标识
+  g.position.set(3.2,0,0);
+  return g;
+}
+
+/* ============ 相机（固定视角，分场景） ============ */
+function setView(kind){
+  if(kind==='room'){ camera.position.set(0,9.5,12.5); camera.lookAt(0,1,0); }
+  else { camera.position.set(0,6.5,11); camera.lookAt(0,1.4,0); }
+}
+
+/* ============ UI 渲染 ============ */
+const ui = document.getElementById('ui');
+function el(html){ const d=document.createElement('div'); d.innerHTML=html; return d.firstElementChild; }
+function showState(){
+  ui.innerHTML='';
+  if(state==='menu') return showMenu();
+  if(state==='room') return showRoomHUD();
+  if(state==='question') return showQuestion();
+  if(state==='upgrade') return showUpgrade();
+  if(state==='battle') return showBattle();
+}
+function showMenu(){
+  ui.innerHTML = `
+    <div class="panel">
+      <h1 class="title">词汇勇者</h1>
+      <div class="sub">拖动小勇士进入传送门，答对英语词汇即可获得武器加成，击败怪物继续闯关！</div>
+      <div class="sub" style="font-size:12px">答对 → 选一项加成 · 答错 → 无加成照常战斗</div>
+      <div class="grid-2" id="lvlGrid"></div>
+    </div>`;
+  const grid=ui.querySelector('#lvlGrid');
+  const order=["小学","初中","高中","四级","六级"];
+  order.forEach(k=>{
+    const c=CONFIG[k];
+    const b=el(`<button class="lvl-btn"><b>${k}</b><small>词汇 ${DATA[k].length} 词 · 怪血 ${c.baseHP}</small></button>`);
+    b.onclick=()=>startRun(k);
+    grid.appendChild(b);
+  });
+}
+function startRun(k){
+  level=k; P={weapon:1,maxBullets:5,bullets:5,score:0,round:0,correct:0,wrong:0};
+  usedWords.clear(); doorOpened=false; state='room';
+  resetDoor(); placeHeroStart(); setView('room');
+  showRoomHUD(); refreshHeroBar();
+  tip('按住小勇士并拖到发光的门里');
+}
+function showRoomHUD(){
+  ui.innerHTML = `
+    <div class="run-name">${level} · 第 <b>${P.round+1}</b> 关 &nbsp;&nbsp; 武器×<b id="wv">${P.weapon}</b></div>
+    <div class="score-chip">得分 ${P.score}</div>
+    <div class="bar-row top"><div class="bar-label">生命子弹</div><div class="bar hero"><i id="hb"></i></div></div>
+    <div class="tip-bottom" id="tip">按住小勇士，把它拖进发光的门</div>`;
+}
+function refreshHeroBar(){
+  const h=ui.querySelector('#hb'); if(h) h.style.width=(P.bullets/P.maxBullets*100)+'%';
+  const w=ui.querySelector('#wv'); if(w) w.textContent='×'+P.weapon;
+}
+function tip(t){const e=ui.querySelector('#tip'); if(e) e.textContent=t;}
+function resetDoor(){ doorGlow.material.opacity=.25; doorPanel.scale.set(1,1,1); doorGlow.scale.set(1,1,1); }
+function placeHeroStart(){ heroGroup.position.set(0,0.7,3); }
+
+/* ============ 词汇题 ============ */
+function pickWord(){
+  const list=DATA[level]; let w=null;
+  for(let i=0;i<list.length;i++){ const c=list[(Math.random()*list.length)|0]; if(!usedWords.has(c[0])){ w=c; break; } }
+  if(!w){ usedWords.clear(); w=list[(Math.random()*list.length)|0]; }
+  usedWords.add(w[0]); curWord=w;
+}
+function showQuestion(){
+  pickWord();
+  const [en,zh]=curWord;
+  const showEn = Math.random()<0.5; // true:给英文选中文; false:给中文选英文
+  const question = showEn?`指译：“${en}”`:`译回：“${zh}”`;
+  const correct = showEn?zh:en;
+  // 混淆项：从同等级随机抽含义
+  const opts=[correct]; const pool=DATA[level].slice();
+  while(opts.length<4){
+    const c=pool[(Math.random()*pool.length)|0];
+    const cand = showEn?c[1]:c[0];
+    if(!opts.includes(cand)) opts.push(cand);
+  }
+  // 打乱
+  for(let i=opts.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[opts[i],opts[j]]=[opts[j],opts[i]];}
+  ui.innerHTML=`
+    <div class="panel">
+      <div class="sub">${level} · 第 ${P.round+1} 关词汇挑战</div>
+      <div class="${showEn?'q-en':'q-zh'}">${showEn?en:zh}</div>
+      <div class="sub" style="margin-bottom:8px">请选出它的${showEn?'中文意思':'英文拼写'}</div>
+      <div id="opts"></div>
+      <div class="hint" id="qhint"></div>
+    </div>`;
+  const box=ui.querySelector('#opts');
+  opts.forEach(o=>{
+    if(o===undefined||o===null) return;
+    const b=el(`<button class="opt-btn">${o}</button>`);
+    b.onclick=()=>answer(o,correct,b);
+    box.appendChild(b);
+  });
+}
+let answered=false;
+function answer(choice, correct, btn){
+  if(answered) return; answered=true;
+  const ok = choice===correct;
+  const qhint=ui.querySelector('#qhint'); const btns=ui.querySelectorAll('.opt-btn');
+  btns.forEach(b=>{ b.style.pointerEvents='none'; if(b.textContent===correct) b.classList.add('correct'); });
+  if(!ok) btn.classList.add('wrong');
+  if(ok){ P.correct++; qhint.textContent='✔ 答对啦！请选择一项门之力加成'; }
+  else   { P.wrong++;   qhint.textContent='✘ 答错了。正确是「'+correct+'」本轮无加成，战斗继续…'; }
+  setTimeout(()=>{
+    if(ok){ state='upgrade'; showUpgrade(); }
+    else { enterBattle(); }
+  }, 850);
+}
+/* ============ 加成二选一 ============ */
+function showUpgrade(){
+  ui.innerHTML=`
+    <div class="panel">
+      <div class="sub">回答正确，门的能量涌向你！选择一项永久加成</div>
+      <div class="grid-2">
+        <button class="upgrade-btn w2">武器 ×2<u>攻击力 ${P.weapon} → ${P.weapon*2}</u></button>
+        <button class="upgrade-btn ammo">生命子弹 +${USE_BALLS_PER_ROUND}<u>上限 ${P.maxBullets} → ${P.maxBullets+USE_BALLS_PER_ROUND}</u></button>
+      </div>
+    </div>`;
+  ui.querySelector('.w2').onclick=()=>{ P.weapon*=2; applyUpgradeFlash('w2'); enterBattle(); };
+  ui.querySelector('.ammo').onclick=()=>{ P.maxBullets+=USE_BALLS_PER_ROUND; P.bullets=Math.min(P.maxBullets, P.bullets+USE_BALLS_PER_ROUND); applyUpgradeFlash('ammo'); enterBattle(); };
+}
+function applyUpgradeFlash(kind){
+  const label = kind==='w2' ? '武器翻倍！' : '+子弹！';
+  floatText(heroGroup.position.clone().add(new THREE.Vector3(0,1.2,0)), label, 0x5eead4);
+}
+
+/* ============ 战斗生成与关卡循环 ============ */
+function enterBattle(){
+  answered=false; curWord=null; state='battle';
+  // 生成怪物数值并锁定（当前局内固定）——依据当前战况动态调整
+  const c=CONFIG[level];
+  const hp = c.baseHP + P.round*c.hpGrow + Math.floor(P.weapon*HP_INTENSITY);
+  const atk= c.baseATK + P.round*c.atkGrow;
+  monster={name:level, hp, maxHp:hp, atk, round:P.round};
+  // 场景切换
+  if(monsterGroup){ scene.remove(monsterGroup); disposeGroup(monsterGroup); }
+  monsterGroup=buildMonster(c.color, P.round);
+  scene.add(monsterGroup);
+  heroGroup.position.set(-3.2,0.7,0);
+  doorGroup.visible=false;
+  setView('battle');
+  showBattle();
+  startCombat();
+}
+function showBattle(){
+  ui.innerHTML=`
+    <div class="bar-row top"><div class="bar-label">🛡 我方子弹</div>
+      <div class="bar hero"><i id="bhb"></i></div></div>
+    <div class="bar-row bottom"><div class="bar-label">👾 ${monster.name}怪兽 HP</div>
+      <div class="bar mon"><i id="mhb"></i></div></div>
+    <div class="score-chip">得分 ${P.score} · 武器×${P.weapon}</div>
+    <div id="vsbar">
+      <div class="vs-item">我方<br>攻击 <b id="pAtk">${P.weapon}</b></div>
+      <span style="display:inline-block;width:30px"></span>
+      <div class="vs-item mon">${monster.name}怪<br>攻击 <b id="mAtk">${monster.atk}</b></div>
+    </div>
+    <div class="tip-bottom" id="btip">⚔ 自动战斗中…</div>`;
+  updateBars();
+}
+function updateBars(){
+  const bh=ui.querySelector('#bhb'); if(bh) bh.style.width=(Math.max(0,P.bullets)/P.maxBullets*100)+'%';
+  const mh=ui.querySelector('#mhb'); if(mh) mh.style.width=(Math.max(0,monster.hp)/monster.maxHp*100)+'%';
+}
+let fightBusy=false, fightPhase='player', fightNext=0, fightTimer=null;
+function startCombat(){
+  fightBusy=true; fightPhase='player'; fightNext=performance.now()+700;
+  // 备用驱动：与 rAF 双保险。fightTick 通过 fightNext 幂等，不会重复执行
+  if(fightTimer) clearInterval(fightTimer);
+  fightTimer=setInterval(()=>{ if(state==='battle') fightTick(); }, 120);
+}
+// 战斗由主渲染循环（animate）驱动，用时间戳推进，避免后台节流导致卡死
+function fightTick(){
+  const now=performance.now();
+  if(now<fightNext) return;
+  if(P.bullets<=0 || monster.hp<=0){ endCombat(); return; }
+  if(fightPhase==='player'){
+    punch(heroGroup.position.clone().add(new THREE.Vector3(0,2.2,0)),
+          monsterGroup.position.clone().add(new THREE.Vector3(0,2,0)), 220, null);
+    monster.hp = Math.max(0, monster.hp - P.weapon);
+    flashMonster();
+    floatText(monsterGroup.position.clone().add(new THREE.Vector3(0,2.6,0)), '-'+P.weapon, '#ffd27a');
+    updateBars();
+    if(monster.hp<=0){ endCombat(); return; }
+    fightPhase='monster'; fightNext=now+480;
+  } else {
+    punch(monsterGroup.position.clone().add(new THREE.Vector3(0,2,0)),
+          heroGroup.position.clone().add(new THREE.Vector3(0,2.2,0)), 220, null);
+    P.bullets = Math.max(0, P.bullets - monster.atk);
+    flashHero();
+    floatText(heroGroup.position.clone().add(new THREE.Vector3(0,2.8,0)), '-'+monster.atk, '#ff7a7a');
+    updateBars();
+    if(P.bullets<=0){ endCombat(); return; }
+    fightPhase='player'; fightNext=now+560;
+  }
+}
+function endCombat(){
+  fightBusy=false;
+  if(fightTimer){ clearInterval(fightTimer); fightTimer=null; }
+  if(monster.hp<=0){
+    P.score += 100 + P.bullets*10* (P.bullets>0?1:0);
+    P.round++;
+    P.bullets=Math.min(P.maxBullets, P.bullets+HEAL_PER_WIN);
+    setTimeout(()=>completeStage(), 700);
+  } else {
+    setTimeout(()=>gameOver(), 700);
+  }
+}
+function completeStage(){
+  doorGroup.visible=true; resetDoor(); doorOpened=false;
+  removeMonster();
+  heroGroup.position.set(0,0.7,3);
+  setView('room');
+  state='room';
+  showRoomHUD(); refreshHeroBar();
+  tip('🎉 通关！怪物产物掉落。再来一轮，继续拖进门'); placeHeroStart();
+}
+function gameOver(){
+  setView('room');
+  doorGroup.visible=true; removeMonster(); placeHeroStart(); state='menu';
+  ui.innerHTML=`
+    <div class="panel">
+      <h1 class="title">挑战结束</h1>
+      <div class="sub">${level} · 闯到第 ${P.round+1} 关</div>
+      <div class="big-num">${P.score}</div>
+      <div class="sub">答对 ${P.correct} 题 · 答错 ${P.wrong} 题</div>
+      <div class="btn-row">
+        <button class="btn-ghost" onclick="location.reload()">回主菜单</button>
+        <button class="btn-main" id="retry">再来一局</button>
+      </div>
+    </div>`;
+  ui.querySelector('#retry').onclick=()=>startRun(level);
+}
+
+/* ============ 工具函数 ============ */
+function disposeGroup(o){ o.traverse(c=>{ if(c.geometry)c.geometry.dispose(); if(c.material)Array.isArray(c.material)?c.material.forEach(m=>m.dispose()):c.material.dispose(); }); }
+function removeMonster(){ if(monsterGroup){ scene.remove(monsterGroup); disposeGroup(monsterGroup); monsterGroup=null; } }
+function flashMonster(){ flashMesh(monsterGroup); }
+function flashHero(){ flashMesh(heroGroup); }
+function flashMesh(root){
+  if(!root) return;
+  const shell = new THREE.Mesh(
+    new THREE.SphereGeometry(1.25, 12, 12),
+    new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.45})
+  );
+  shell.position.set(0, 1.7, 0); root.add(shell);
+  setTimeout(()=>{ root.remove(shell); shell.geometry.dispose(); shell.material.dispose(); }, 200);
+}
+/* 打击特效：进projs，在渲染主循环里更新，不依赖游离的rAF */
+const projs=[];
+function punch(from,to,dur,cb){
+  const dot=new THREE.Mesh(new THREE.SphereGeometry(.16,8,8), new THREE.MeshBasicMaterial({color:0xffe08a}));
+  dot.position.copy(from); scene.add(dot);
+  const p={m:dot, from:from.clone(), to:to.clone(), t0:performance.now(), dur};
+  projs.push(p);
+  if(typeof cb==='function') setTimeout(cb, dur);
+}
+function updateProjs(){
+  const now=performance.now();
+  for(let i=projs.length-1;i>=0;i--){
+    const p=projs[i]; const k=Math.min(1,(now-p.t0)/p.dur);
+    p.m.position.lerpVectors(p.from,p.to,k);
+    if(k>=1){ scene.remove(p.m); p.m.geometry.dispose(); p.m.material.dispose(); projs.splice(i,1); }
+  }
+}
+function floatText(world, txt, color){
+  if(typeof color==='number') color='#'+color.toString(16).padStart(6,'0');
+  const v=world.clone().project(camera);
+  const x=(v.x*0.5+0.5)*innerWidth, y=(-v.y*0.5+0.5)*innerHeight;
+  const d=el(`<div class="float dmg" style="left:${x}px;top:${y}px;color:${color}">${txt}</div>`);
+  ui.appendChild(d); setTimeout(()=>d.remove(),1000);
+}
+
+/* ============ 拖拽交互 ============ */
+const ray=new THREE.Raycaster(); const pd=new THREE.Vector2(); const floorPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+const dragPlane=new THREE.Vector3();
+canvas.addEventListener('pointerdown',(e)=>{
+  if(state!=='room') return;
+  const pos=screenToWorld(e); if(!pos) return;
+  // 检测是否命中英雄（同时允许点中门附近）
+  const heroBox=new THREE.Box3().setFromObject(heroGroup);
+  const heroHit = heroBox.intersectsSphere(new THREE.Sphere(pos,0.7));
+  if(heroHit){
+    dragging=true;
+    const heroCenter=heroGroup.position;
+    dragOffset.x = heroCenter.x - pos.x;
+    dragOffset.z = heroCenter.z - pos.z;
+    try{ canvas.setPointerCapture(e.pointerId); }catch(err){}
+  }
+});
+canvas.addEventListener('pointermove',(e)=>{
+  if(!dragging||state!=='room') return;
+  const pos=screenToWorld(e); if(!pos) return;
+  let nx=Math.max(-5,Math.min(5,pos.x+dragOffset.x));
+  let nz=Math.max(-7,Math.min(7,pos.z+dragOffset.z));
+  heroGroup.position.set(nx,0.7,nz);
+  // 检测是否进入门的触发范围
+  if(heroGroup.position.z < -3.9) openDoor();
+});
+canvas.addEventListener('pointerup',(e)=>{
+  const wasDrag=dragging;
+  dragging=false;
+  // 未拖动（单纯点击）且正处房间：允许直接点击门开启
+  if(!wasDrag && state==='room' && doorOpened===false && hitDoor(e)) openDoor();
+});
+function hitDoor(e){
+  pd.x=(e.clientX/innerWidth)*2-1; pd.y=-(e.clientY/innerHeight)*2+1;
+  ray.setFromCamera(pd,camera);
+  const hits=ray.intersectObjects([doorPanel,doorGlow,frame],false);
+  return hits.length>0;
+}
+function screenToWorld(e){
+  pd.x=(e.clientX/innerWidth)*2-1; pd.y=-(e.clientY/innerHeight)*2+1;
+  ray.setFromCamera(pd,camera);
+  const ip=new THREE.Vector3();
+  const hit=ray.ray.intersectPlane(floorPlane,ip);
+  if(hit) return ip;
+  return null;
+}
+function openDoor(){
+  if(state!=='room'||doorOpened) return;
+  dragging=false;
+  doorOpened=true;
+  doorGlow.material.opacity=.85;
+  doorGlow.scale.set(1.15,1.15,1);
+  doorPanel.scale.set(1.04,1.04,1);
+  floatText(doorGroup.position.clone().add(new THREE.Vector3(0,2,0)),'传送门开！','#8b7bff');
+  setTimeout(()=>{ state='question'; showQuestion(); }, 500);
+}
+let doorOpened=false;
+
+/* ============ 主循环 ============ */
+function animate(){
+  requestAnimationFrame(animate);
+  // 轻微呼吸动画
+  const t=Date.now()*0.001;
+  if(state==='room'){ doorGlow.rotation.y=Math.sin(t*1.5)*0.15; doorGlow.position.x=Math.sin(t*2)*0.03; }
+  if(monsterGroup && state==='battle'){ monsterGroup.rotation.y=Math.sin(t*2)*0.12; monsterGroup.position.y=Math.sin(t*3)*0.05; }
+  if(state==='room'){ heroGroup.rotation.y=0; }
+  if(state==='battle' && fightBusy) fightTick();
+  updateProjs();
+  renderer.render(scene,camera);
+}
+window.addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+renderer.setSize(innerWidth,innerHeight);
+
+// 初始显示主菜单
+state='menu'; showMenu();
+animate();
+</script>
+</body>
+</html>
