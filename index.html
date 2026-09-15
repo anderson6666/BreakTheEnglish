@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-<title>词汇勇者：拖拽进门闯关</title>
+<title>词汇勇者：答题闯关</title>
 <style>
   :root{
     --accent:#8b7bff; --accent2:#5eead4;
@@ -3391,19 +3391,28 @@ const CONFIG = {
   "四级":{baseHP:24,baseATK:2, hpGrow:4, atkGrow:1, color:0xff5c7a},
   "六级":{baseHP:32,baseATK:3, hpGrow:5, atkGrow:2, color:0xc084fc}
 };
-const HP_INTENSITY = 0.6;       // 怪物HP随武器强度的系数
-const USE_BALLS_PER_ROUND = 4;  // 加子弹：+4
-const HEAL_PER_WIN = 2;
+const HERO_MAX_HP = 15;           // 战士初始最大血量
+const HEAL_PER_WIN = 2;           // 每局胜利回血
+const ATTACK_INTERVAL = 0.55;     // 战士攻击间隔(秒)
+const MELEE_INTERVAL = 1.2;       // 怪物近战攻击间隔(秒)
+const HERO_Z = 4;                 // 战士固定位置(屏幕底部)
+const SPAWN_Z = -9;               // 怪物出生位置(屏幕顶部)
+const BOSS_SPAWN_Z = -11;
+const MINION_SPEED = 3.5;         // 小怪移动速度
+const BOSS_SPEED = 1.8;           // BOSS移动速度
+const CONTACT_DIST = 1.0;         // 近战接触距离
 
 /* ============ 全局状态 ============ */
-let state = "menu";               // menu|room|question|upgrade|battle
+let state = "menu";               // menu|question|upgrade|battle
 let level = null;                 // 当前等级
-let P = { weapon:1, maxBullets:5, bullets:5, score:0, round:0, correct:0, wrong:0 };
-let monster = null;               // {hp,maxHp,atk,name}
+let P = { weapon:1, maxHp:HERO_MAX_HP, hp:HERO_MAX_HP, score:0, round:0, correct:0, wrong:0 };
+let enemies = [];                 // 战场上的怪物数组
 let usedWords = new Set();
 let curWord = null;
-let dragging = false, dragOffset = new THREE.Vector3();
 let battleBusy = false;
+let heroNextAttack = 0;
+let lastBattleTick = 0;
+let camBase=new THREE.Vector3();
 
 /* ============ Three.js 基础 ============ */
 const canvas = document.getElementById('game');
@@ -3457,7 +3466,7 @@ function leg(x){const s=0.24;const g=new THREE.Group();
   const e2=new THREE.Mesh(new THREE.SphereGeometry(.06,8,8),eyeM);e2.position.set(0.12,1.78,0.3);heroGroup.add(e2);
   heroGroup.add(arm(-0.62)); heroGroup.add(arm(0.62));
   heroGroup.add(leg(-0.24)); heroGroup.add(leg(0.24));
-  heroGroup.position.set(0,0.7,3);
+  heroGroup.position.set(0,0.7,HERO_Z);
   scene.add(heroGroup);
 })();
 
@@ -3473,6 +3482,7 @@ doorGroup.add(doorPanel);
 const knob= new THREE.Mesh(new THREE.SphereGeometry(.14,12,12), new THREE.MeshStandardMaterial({color:0xffd700,metalness:.8,roughness:.3}));
 knob.position.set(0.6,0.1,0.18); doorGroup.add(knob);
 doorGroup.position.set(0,0,-4.5);
+doorGroup.visible=false;
 scene.add(doorGroup);
 const doorBox = new THREE.Box3().setFromObject(doorPanel);
 
@@ -3514,10 +3524,11 @@ function buildMonster(color, round){
   return g;
 }
 
-/* ============ 相机（固定视角，分场景） ============ */
-function setView(kind){
-  if(kind==='room'){ camera.position.set(0,9.5,12.5); camera.lookAt(0,1,0); }
-  else { camera.position.set(0,6.5,11); camera.lookAt(0,1.4,0); }
+/* ============ 相机（竖屏固定视角） ============ */
+function setView(){
+  // 竖屏：摄像机从斜上方看走廊，-Z在屏幕上方，+Z在屏幕下方
+  camera.position.set(0, 9.5, 5.5);
+  camera.lookAt(0, 0, -2);
   camBase.copy(camera.position);
 }
 
@@ -3527,7 +3538,6 @@ function el(html){ const d=document.createElement('div'); d.innerHTML=html; retu
 function showState(){
   ui.innerHTML='';
   if(state==='menu') return showMenu();
-  if(state==='room') return showRoomHUD();
   if(state==='question') return showQuestion();
   if(state==='upgrade') return showUpgrade();
   if(state==='battle') return showBattle();
@@ -3536,7 +3546,7 @@ function showMenu(){
   ui.innerHTML = `
     <div class="panel">
       <h1 class="title">词汇勇者</h1>
-      <div class="sub">拖动小勇士进入传送门，答对英语词汇即可获得武器加成，击败怪物继续闯关！</div>
+      <div class="sub">答对英语词汇获得武器加成，击退不断逼近的小怪与BOSS，继续闯关！</div>
       <div class="sub" style="font-size:12px">答对 → 选一项加成 · 答错 → 无加成照常战斗</div>
       <div class="grid-2" id="lvlGrid"></div>
     </div>`;
@@ -3544,32 +3554,19 @@ function showMenu(){
   const order=["小学","初中","高中","四级","六级"];
   order.forEach(k=>{
     const c=CONFIG[k];
-    const b=el(`<button class="lvl-btn"><b>${k}</b><small>词汇 ${DATA[k].length} 词 · 怪血 ${c.baseHP}</small></button>`);
+    const b=el(`<button class="lvl-btn"><b>${k}</b><small>词汇 ${DATA[k].length} 词</small></button>`);
     b.onclick=()=>startRun(k);
     grid.appendChild(b);
   });
 }
 function startRun(k){
-  level=k; P={weapon:1,maxBullets:5,bullets:5,score:0,round:0,correct:0,wrong:0};
-  usedWords.clear(); doorOpened=false; state='room';
-  resetDoor(); placeHeroStart(); setView('room');
-  showRoomHUD(); refreshHeroBar();
-  tip('按住小勇士并拖到发光的门里');
+  level=k; P={weapon:1,maxHp:HERO_MAX_HP,hp:HERO_MAX_HP,score:0,round:0,correct:0,wrong:0};
+  usedWords.clear(); state='question';
+  doorGroup.visible=false;
+  heroGroup.position.set(0,0.7,HERO_Z);
+  setView();
+  showQuestion();
 }
-function showRoomHUD(){
-  ui.innerHTML = `
-    <div class="run-name">${level} · 第 <b>${P.round+1}</b> 关 &nbsp;&nbsp; 武器×<b id="wv">${P.weapon}</b></div>
-    <div class="score-chip">得分 ${P.score}</div>
-    <div class="bar-row top"><div class="bar-label">生命子弹</div><div class="bar hero"><i id="hb"></i></div></div>
-    <div class="tip-bottom" id="tip">按住小勇士，把它拖进发光的门</div>`;
-}
-function refreshHeroBar(){
-  const h=ui.querySelector('#hb'); if(h) h.style.width=(P.bullets/P.maxBullets*100)+'%';
-  const w=ui.querySelector('#wv'); if(w) w.textContent='×'+P.weapon;
-}
-function tip(t){const e=ui.querySelector('#tip'); if(e) e.textContent=t;}
-function resetDoor(){ doorGlow.material.opacity=.25; doorPanel.scale.set(1,1,1); doorGlow.scale.set(1,1,1); }
-function placeHeroStart(){ heroGroup.position.set(0,0.7,3); }
 
 /* ============ 词汇题 ============ */
 function pickWord(){
@@ -3630,114 +3627,172 @@ function showUpgrade(){
       <div class="sub">回答正确，门的能量涌向你！选择一项永久加成</div>
       <div class="grid-2">
         <button class="upgrade-btn w2">武器 ×2<u>攻击力 ${P.weapon} → ${P.weapon*2}</u></button>
-        <button class="upgrade-btn ammo">生命子弹 +${USE_BALLS_PER_ROUND}<u>上限 ${P.maxBullets} → ${P.maxBullets+USE_BALLS_PER_ROUND}</u></button>
+        <button class="upgrade-btn ammo">最大生命 +5<u>上限 ${P.maxHp} → ${P.maxHp+5} 并回满</u></button>
       </div>
     </div>`;
   ui.querySelector('.w2').onclick=()=>{ P.weapon*=2; applyUpgradeFlash('w2'); enterBattle(); };
-  ui.querySelector('.ammo').onclick=()=>{ P.maxBullets+=USE_BALLS_PER_ROUND; P.bullets=Math.min(P.maxBullets, P.bullets+USE_BALLS_PER_ROUND); applyUpgradeFlash('ammo'); enterBattle(); };
+  ui.querySelector('.ammo').onclick=()=>{ P.maxHp+=5; P.hp=P.maxHp; applyUpgradeFlash('ammo'); enterBattle(); };
 }
 function applyUpgradeFlash(kind){
-  const label = kind==='w2' ? '武器翻倍！' : '+子弹！';
+  const label = kind==='w2' ? '武器翻倍！' : '生命提升！';
   floatText(heroGroup.position.clone().add(new THREE.Vector3(0,1.2,0)), label, 0x5eead4);
+}
+
+/* ============ 小怪模型 ============ */
+function buildMinion(color){
+  const g = new THREE.Group();
+  const skin = new THREE.MeshStandardMaterial({color, roughness:.5, emissive:color, emissiveIntensity:.2});
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.9,0.9,0.9), skin); body.position.y=0.7; g.add(body);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.7,0.7), skin); head.position.y=1.45; g.add(head);
+  const eyeM=new THREE.MeshBasicMaterial({color:0xff3030});
+  const e1=new THREE.Mesh(new THREE.SphereGeometry(.1,8,8),eyeM);e1.position.set(-0.18,1.5,0.36);g.add(e1);
+  const e2=e1.clone();e2.position.set(0.18,1.5,0.36);g.add(e2);
+  // 小角
+  const hornM=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.4});
+  const h1=new THREE.Mesh(new THREE.ConeGeometry(.1,.3,6),hornM);h1.position.set(-0.25,1.9,0);h1.rotation.z=0.3;g.add(h1);
+  const h2=h1.clone();h2.position.set(0.25,1.9,0);h2.rotation.z=-0.3;g.add(h2);
+  return g;
 }
 
 /* ============ 战斗生成与关卡循环 ============ */
 function enterBattle(){
   answered=false; curWord=null; state='battle';
-  // 生成怪物数值并锁定（当前局内固定）——依据当前战况动态调整
-  const c=CONFIG[level];
-  const hp = c.baseHP + P.round*c.hpGrow + Math.floor(P.weapon*HP_INTENSITY);
-  const atk= c.baseATK + P.round*c.atkGrow;
-  monster={name:level, hp, maxHp:hp, atk, round:P.round};
-  // 场景切换
-  if(monsterGroup){ scene.remove(monsterGroup); disposeGroup(monsterGroup); }
-  monsterGroup=buildMonster(c.color, P.round);
-  scene.add(monsterGroup);
-  heroGroup.position.set(-3.2,0.7,0);
+  // 清理上一局
+  clearEnemies();
+  // 计算本关数值：小怪先逼近，BOSS在后，必须打得过但会掉一部分血
+  const r = P.round;
+  const minionCount = 3 + r;                                          // 每回合+1小怪
+  const minionHP = Math.ceil(2 + P.weapon * 0.5);                     // 小怪血量随武器小幅增长
+  const bossHP   = Math.ceil(5 + P.weapon * 1.5 + r * 2);             // BOSS血量随武器和回合增长
+  const minionATK= 1;
+  const bossATK  = 1 + Math.floor(r / 2);
+
+  // 生成小怪：排在屏幕顶部同一z（同时逼近），x方向分散
+  for(let i=0;i<minionCount;i++){
+    const x = (i - (minionCount-1)/2) * 1.5;
+    const m = buildMinion(CONFIG[level].color);
+    m.position.set(x, 0, SPAWN_Z);
+    scene.add(m);
+    enemies.push({group:m, hp:minionHP, maxHp:minionHP, atk:minionATK,
+                  speed:MINION_SPEED, type:'minion', alive:true, nextMelee:0});
+  }
+  // 生成BOSS：在小怪后方
+  const bossMesh = buildMonster(CONFIG[level].color, r);
+  bossMesh.position.set(0, 0, BOSS_SPAWN_Z);
+  scene.add(bossMesh);
+  enemies.push({group:bossMesh, hp:bossHP, maxHp:bossHP, atk:bossATK,
+                speed:BOSS_SPEED, type:'boss', alive:true, nextMelee:0});
+
   doorGroup.visible=false;
-  setView('battle');
+  heroGroup.position.set(0,0.7,HERO_Z);
+  setView();
   showBattle();
-  startCombat();
+  battleBusy=true;
+  heroNextAttack = performance.now() + 600;
+  lastBattleTick = 0;
 }
 function showBattle(){
+  const boss = enemies.find(e=>e.type==='boss');
   ui.innerHTML=`
-    <div class="bar-row top"><div class="bar-label">🛡 我方子弹</div>
+    <div class="bar-row top"><div class="bar-label">🛡 我方生命</div>
       <div class="bar hero"><i id="bhb"></i></div></div>
-    <div class="bar-row bottom"><div class="bar-label">👾 ${monster.name}怪兽 HP</div>
+    <div class="bar-row bottom"><div class="bar-label">👾 BOSS HP</div>
       <div class="bar mon"><i id="mhb"></i></div></div>
-    <div class="score-chip">得分 ${P.score} · 武器×${P.weapon}</div>
+    <div class="score-chip">第 ${P.round+1} 关 · 武器×${P.weapon} · 得分 ${P.score}</div>
     <div id="vsbar">
       <div class="vs-item">我方<br>攻击 <b id="pAtk">${P.weapon}</b></div>
       <span style="display:inline-block;width:30px"></span>
-      <div class="vs-item mon">${monster.name}怪<br>攻击 <b id="mAtk">${monster.atk}</b></div>
+      <div class="vs-item mon">BOSS<br>攻击 <b id="mAtk">${boss?boss.atk:0}</b></div>
     </div>
-    <div class="tip-bottom" id="btip">⚔ 自动战斗中…</div>`;
+    <div class="tip-bottom" id="btip">⚔ 小怪正在逼近…</div>`;
   updateBars();
 }
 function updateBars(){
-  const bh=ui.querySelector('#bhb'); if(bh) bh.style.width=(Math.max(0,P.bullets)/P.maxBullets*100)+'%';
-  const mh=ui.querySelector('#mhb'); if(mh) mh.style.width=(Math.max(0,monster.hp)/monster.maxHp*100)+'%';
+  const bh=ui.querySelector('#bhb'); if(bh) bh.style.width=(Math.max(0,P.hp)/P.maxHp*100)+'%';
+  const boss=enemies.find(e=>e.type==='boss');
+  const mh=ui.querySelector('#mhb'); if(mh&&boss) mh.style.width=(Math.max(0,boss.hp)/boss.maxHp*100)+'%';
 }
-let fightBusy=false, fightPhase='player', fightNext=0, fightTimer=null;
-function startCombat(){
-  fightBusy=true; fightPhase='player'; fightNext=performance.now()+700;
-  // 备用驱动：与 rAF 双保险。fightTick 通过 fightNext 幂等，不会重复执行
-  if(fightTimer) clearInterval(fightTimer);
-  fightTimer=setInterval(()=>{ if(state==='battle') fightTick(); }, 120);
+function findNearestEnemy(){
+  let best=null, bestD=Infinity;
+  for(const e of enemies){
+    if(!e.alive) continue;
+    const d = HERO_Z - e.group.position.z; // 越接近战士距离越小
+    if(d < bestD){ bestD=d; best=e; }
+  }
+  return best;
 }
-// 战斗由主渲染循环（animate）驱动，用时间戳推进，避免后台节流导致卡死
-function fightTick(){
-  const now=performance.now();
-  if(now<fightNext) return;
-  if(P.bullets<=0 || monster.hp<=0){ endCombat(); return; }
-  if(fightPhase==='player'){
-    punch(heroGroup.position.clone().add(new THREE.Vector3(0,2.2,0)),
-          monsterGroup.position.clone().add(new THREE.Vector3(0,2,0)), 220, null);
-    monster.hp = Math.max(0, monster.hp - P.weapon);
-    flashMonster();
-    floatText(monsterGroup.position.clone().add(new THREE.Vector3(0,2.6,0)), '-'+P.weapon, '#ffd27a');
-    updateBars();
-    if(monster.hp<=0){ endCombat(); return; }
-    fightPhase='monster'; fightNext=now+480;
-  } else {
-    punch(monsterGroup.position.clone().add(new THREE.Vector3(0,2,0)),
-          heroGroup.position.clone().add(new THREE.Vector3(0,2.2,0)), 220, null);
-    P.bullets = Math.max(0, P.bullets - monster.atk);
-    flashHero();
-    damageFlash();
-    screenShake(0.25);
-    floatText(heroGroup.position.clone().add(new THREE.Vector3(0,2.8,0)), '-'+monster.atk, '#ff7a7a');
-    updateBars();
-    if(P.bullets<=0){ endCombat(); return; }
-    fightPhase='player'; fightNext=now+560;
+function damageEnemy(e, dmg){
+  e.hp -= dmg;
+  floatText(e.group.position.clone().add(new THREE.Vector3(0, e.type==='boss'?2.6:1.6, 0)), '-'+dmg, '#ffd27a');
+  flashMesh(e.group);
+  if(e.hp<=0){
+    e.alive=false;
+    e.group.visible=false;
+    if(e.type==='boss'){ winBurst(); screenShake(0.25); }
+    else { screenShake(0.08); }
   }
 }
-function endCombat(){
-  fightBusy=false;
-  if(fightTimer){ clearInterval(fightTimer); fightTimer=null; }
-  if(monster.hp<=0){
-    winBurst();
-    screenShake(0.2);
-    P.score += 100 + P.bullets*10* (P.bullets>0?1:0);
+function battleTick(now){
+  if(!battleBusy) return;
+  const dt = lastBattleTick ? Math.min(0.05, (now-lastBattleTick)/1000) : 0.016;
+  lastBattleTick = now;
+  // 战士自动攻击最近的敌人
+  if(now >= heroNextAttack){
+    const target = findNearestEnemy();
+    if(target){
+      punch(heroGroup.position.clone().add(new THREE.Vector3(0,2.2,0)),
+            target.group.position.clone().add(new THREE.Vector3(0, target.type==='boss'?2:1, 0)), 180, null);
+      damageEnemy(target, P.weapon);
+      updateBars();
+    }
+    heroNextAttack = now + ATTACK_INTERVAL*1000;
+  }
+  // 怪物移动 & 近战
+  for(const e of enemies){
+    if(!e.alive) continue;
+    const dist = HERO_Z - e.group.position.z;
+    if(dist > CONTACT_DIST){
+      // 还没碰到，继续逼近
+      e.group.position.z += e.speed * dt;
+    } else {
+      // 已接触战士，近战攻击
+      if(now >= e.nextMelee){
+        e.nextMelee = now + MELEE_INTERVAL*1000;
+        P.hp = Math.max(0, P.hp - e.atk);
+        flashHero(); damageFlash(); screenShake(0.22);
+        floatText(heroGroup.position.clone().add(new THREE.Vector3(0,2.8,0)), '-'+e.atk, '#ff7a7a');
+        updateBars();
+        if(P.hp<=0){ endCombat(false); return; }
+      }
+    }
+  }
+  // 检查胜利：所有敌人死亡
+  if(enemies.every(e=>!e.alive)){ endCombat(true); }
+}
+function clearEnemies(){
+  for(const e of enemies){ if(e.group){ scene.remove(e.group); disposeGroup(e.group); } }
+  enemies = [];
+}
+function endCombat(won){
+  battleBusy=false;
+  if(won){
+    P.score += 100 + P.hp*10;
     P.round++;
-    P.bullets=Math.min(P.maxBullets, P.bullets+HEAL_PER_WIN);
+    P.hp = Math.min(P.maxHp, P.hp + HEAL_PER_WIN);
     setTimeout(()=>completeStage(), 700);
   } else {
     setTimeout(()=>gameOver(), 700);
   }
 }
 function completeStage(){
-  doorGroup.visible=true; resetDoor(); doorOpened=false;
-  removeMonster();
-  heroGroup.position.set(0,0.7,3);
-  setView('room');
-  state='room';
-  showRoomHUD(); refreshHeroBar();
-  tip('🎉 通关！怪物产物掉落。再来一轮，继续拖进门'); placeHeroStart();
+  clearEnemies();
+  heroGroup.position.set(0,0.7,HERO_Z);
+  state='question';
+  showQuestion();
 }
 function gameOver(){
-  setView('room');
-  doorGroup.visible=true; removeMonster(); placeHeroStart(); state='menu';
+  clearEnemies();
+  state='menu';
   ui.innerHTML=`
     <div class="panel">
       <h1 class="title">挑战结束</h1>
@@ -3840,69 +3895,8 @@ function winBurst(){
   setTimeout(()=>c.remove(),1600);
 }
 
-/* ============ 拖拽交互 ============ */
-const ray=new THREE.Raycaster(); const pd=new THREE.Vector2(); const floorPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
-const dragPlane=new THREE.Vector3();
-canvas.addEventListener('pointerdown',(e)=>{
-  if(state!=='room') return;
-  const pos=screenToWorld(e); if(!pos) return;
-  // 检测是否命中英雄（同时允许点中门附近）
-  const heroBox=new THREE.Box3().setFromObject(heroGroup);
-  const heroHit = heroBox.intersectsSphere(new THREE.Sphere(pos,0.7));
-  if(heroHit){
-    dragging=true;
-    const heroCenter=heroGroup.position;
-    dragOffset.x = heroCenter.x - pos.x;
-    dragOffset.z = heroCenter.z - pos.z;
-    try{ canvas.setPointerCapture(e.pointerId); }catch(err){}
-  }
-});
-canvas.addEventListener('pointermove',(e)=>{
-  if(!dragging||state!=='room') return;
-  const pos=screenToWorld(e); if(!pos) return;
-  let nx=Math.max(-5,Math.min(5,pos.x+dragOffset.x));
-  let nz=Math.max(-7,Math.min(7,pos.z+dragOffset.z));
-  heroGroup.position.set(nx,0.7,nz);
-  // 检测是否进入门的触发范围
-  if(heroGroup.position.z < -3.9) openDoor();
-});
-canvas.addEventListener('pointerup',(e)=>{
-  const wasDrag=dragging;
-  dragging=false;
-  // 未拖动（单纯点击）且正处房间：允许直接点击门开启
-  if(!wasDrag && state==='room' && doorOpened===false && hitDoor(e)) openDoor();
-});
-function hitDoor(e){
-  pd.x=(e.clientX/innerWidth)*2-1; pd.y=-(e.clientY/innerHeight)*2+1;
-  ray.setFromCamera(pd,camera);
-  const hits=ray.intersectObjects([doorPanel,doorGlow,frame],false);
-  return hits.length>0;
-}
-function screenToWorld(e){
-  pd.x=(e.clientX/innerWidth)*2-1; pd.y=-(e.clientY/innerHeight)*2+1;
-  ray.setFromCamera(pd,camera);
-  const ip=new THREE.Vector3();
-  const hit=ray.ray.intersectPlane(floorPlane,ip);
-  if(hit) return ip;
-  return null;
-}
-function openDoor(){
-  if(state!=='room'||doorOpened) return;
-  dragging=false;
-  doorOpened=true;
-  doorGlow.material.opacity=.95;
-  doorGlow.scale.set(1.2,1.2,1);
-  doorPanel.scale.set(1.06,1.06,1);
-  doorBurst();
-  screenShake(0.15);
-  floatText(doorGroup.position.clone().add(new THREE.Vector3(0,2,0)),'传送门开！','#8b7bff');
-  setTimeout(()=>{ state='question'; showQuestion(); }, 600);
-}
-let doorOpened=false;
-
 /* ============ 主循环 ============ */
 let lastT=performance.now();
-const camBase=new THREE.Vector3();
 function animate(){
   requestAnimationFrame(animate);
   const now=performance.now();
@@ -3910,13 +3904,14 @@ function animate(){
   const t=now*0.001;
   // 粒子旋转漂浮
   pts.rotation.y=t*0.05;
-  // 门的脉冲发光
-  if(state==='room'){
-    doorGlow.rotation.y=Math.sin(t*1.5)*0.15;
-    doorGlow.position.x=Math.sin(t*2)*0.03;
-    doorGlow.material.opacity=0.25+Math.sin(t*3)*0.08;
+  // 怪物待机动画
+  if(state==='battle'){
+    for(const e of enemies){
+      if(!e.alive||!e.group) continue;
+      e.group.rotation.y=Math.sin(t*2 + e.group.position.x)*0.1;
+      e.group.position.y=Math.sin(t*3 + e.group.position.x)*0.04;
+    }
   }
-  if(monsterGroup && state==='battle'){ monsterGroup.rotation.y=Math.sin(t*2)*0.12; monsterGroup.position.y=Math.sin(t*3)*0.05; }
   // 屏幕震动
   if(shakeT>0){
     shakeT-=dt;
@@ -3924,7 +3919,7 @@ function animate(){
     camera.position.x=camBase.x+(Math.random()-0.5)*m*2;
     camera.position.y=camBase.y+(Math.random()-0.5)*m*2;
   }
-  if(state==='battle' && fightBusy) fightTick();
+  if(state==='battle' && battleBusy) battleTick(now);
   updateBurst(dt);
   updateProjs();
   renderer.render(scene,camera);
