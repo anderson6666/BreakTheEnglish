@@ -3707,17 +3707,68 @@ function startRun(k){
 }
 
 /* ============ 词汇题 ============ */
-// 校验词条有效：中文释义必须含中文字符，且英文不夹带清洗残留字符
-function isBadEntry(en, zh){
-  if(typeof zh!=='string'||!zh) return true;
-  if(!/[\u4e00-\u9fff]/.test(zh)) return true;        // 释义无中文 = 异常(如 "n&v"、"n"、"adj")
-  if(/[\[\]]/.test(zh)) return true;                    // 残留脏括号
-  if(typeof en!=='string'||!/^[a-zA-Z][a-zA-Z' -]*$/.test(en)) return true;
-  return false;
+// ---------- 词汇修复引擎：清洗损坏条目，让"n&v"等坏词恢复有效后再入题 ----------
+// 1) 修复词典：为无中文释义的常用词补上正确中文（原数据里的释义被词性标记覆盖）
+const FIX_DICT = {
+  'a':'一(个)；一个', 'an':'一(个)', 'chat':'聊天', 'attempt':'尝试，企图',
+  'sleep':'睡觉', 'shake':'摇动，震动', 'tour':'旅游，旅行', 'display':'展示，陈列',
+  'throw':'投掷，扔', 'understand':'理解，懂得', 'burn':'燃烧，烧', 'cut':'切，割',
+  'put':'放置', 'hit':'打，击中', 'beat':'打败，敲打', 'mean':'意思是，意味着',
+  'hum':'哼唱，发嗡嗡声', 'stand':'站立', 'forget':'忘记', 'fall':'落下，跌倒',
+  'steal':'偷，窃取', 'spend':'花费，度过', 'sweep':'扫，打扫', 'choose':'选择',
+  'speak':'说话，演讲', 'shall':'将要', 'run':'跑，奔跑', 'might':'可能，或许',
+  'worst':'最坏的，最差', 'catch':'抓住，接住', 'shut':'关闭，关上', 'forbid':'禁止',
+  'bring':'带来，拿来', 'sit':'坐', 'begin':'开始', 'become':'变成，成为',
+  'break':'打破，休息', 'bow':'鞠躬，弓', 'hear':'听见', 'seek':'寻找，寻求',
+  'dislike':'不喜欢，厌恶', 'buy':'买', 'teach':'教授，教', 'get':'得到，获得',
+  'will':'将会，将要', 'attack':'攻击', 'travel':'旅行', 'update':'更新',
+  'non-stop':'不停的', 'guarantee':'保证，担保', 'overhead':'在头顶的', 'may':'可以，可能',
+  'besides':'此外，除了', 'most':'大多数，最', 'underneath':'在下面', 'yearly':'每年的',
+  'have':'有，拥有', 'least':'最少', 'each':'每个', 'either':'两者之一',
+  'supply':'供应，提供', 'stare':'凝视，盯着看', 'whichever':'无论哪个', 'shrug':'耸肩',
+  'suicide':'自杀', 'raid':'袭击，突袭', 'quarterly':'季度的', 'reproach':'责备',
+  'reform':'改革，改造', 'crawl':'爬行，匍匐前进', 'swap':'交换', 'chase':'追赶，追逐',
+  'sacrifice':'牺牲，献祭', 'mutter':'咕哝，喃喃自语', 'protest':'抗议', 'stab':'刺，戳',
+  'auction':'拍卖', 'disgust':'厌恶，反感', 'nurture':'养育，培育', 'command':'命令，指挥',
+  'exchange':'交换，兑换', 'defeat':'击败，战胜', 'yell':'叫喊，大喊', 'dictate':'口述，规定',
+  'debate':'辩论，争论', 'plunge':'猛跌，暴跌', 'cycle':'循环，自行车', 'gaze':'凝视，注视',
+  'sideways':'斜着，侧着', 'synthesis':'综合，合成', 'apart':'分开的', 'sympathize':'同情',
+  'modernization':'现代化', 'direct':'直接的，指导', 'crisis':'危机', 'alongside':'在…旁边',
+  'man':'男人，人类', 'secure':'安全的', 'outside':'在外面', 'criterion':'标准，准则',
+  'specialize':'专门研究，专攻', 'below':'在下面', 'a.':'形容词', 'adj.':'形容词',
+};
+// 2) 清洗释义：去掉学科标签/词性/动词变形括号，只留有效中文
+function cleanZh(zh){
+  if(typeof zh!=='string') return '';
+  let s = zh;
+  s = s.replace(/\[([^\]]*)\]/g, '');                 // 去掉[...]（学科标签或动词变形）
+  s = s.replace(/\s*(n&v|n&vt|n&vi|vt&n|vi&n|adj&adv|adv&adj|modal\s+verb|indefinite\s+art|aux\s+v|v&n|det,pron|adv,prep|prep,adv|adv,adj|a&ad|n|vt|vi|adj|ad|adv|conj|prep|pron|det|v)\b[;，、]*/gi, '');
+  s = s.replace(/[\s，、;]+$/g, '');                  // 去尾部残留
+  return s.trim();
 }
+// 3) 修复单条：先清洗；清洗后无有效中文则查修复词典；仍无效返回null
+function fixEntry(en, zh){
+  zh = cleanZh(zh);
+  if(!/[\u4e00-\u9fff]/.test(zh)){                 // 清洗后无中文（词性标记/变形残留）→ 用词典
+    zh = FIX_DICT[en] || '';
+  }
+  if(!/[\u4e00-\u9fff]/.test(zh)) return null;       // 连词典也没有 → 彻底无效
+  const enOk = /^[a-zA-Z][a-zA-Z' .\u00C0-\u024F&-]*$/.test(en);   // 放行 Mr. vs. resumé
+  if(!enOk) return null;
+  return [en, zh];
+}
+// 4) 有效词池（清洗+修复后的展示用基础数据，懒构建后缓存）
+const _poolCache = {};
 function validPool(){
-  const pool=DATA[level].slice();
-  return pool.filter(c=>!isBadEntry(c[0],c[1]));
+  const lv = level;
+  if(_poolCache[lv]) return _poolCache[lv];
+  const out = [];
+  for(const [en,zh] of DATA[lv]){
+    const f = fixEntry(en,zh);
+    if(f) out.push(f);
+  }
+  _poolCache[lv] = out;
+  return out;
 }
 function pickWord(){
   const valid=validPool(); let w=null;
