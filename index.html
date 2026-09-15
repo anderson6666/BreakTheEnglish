@@ -49,6 +49,11 @@
   .lvl-btn b{display:block;font-size:17px;margin-bottom:2px;}
   .lvl-btn small{opacity:.65;font-weight:400;font-size:11px;}
   .lvl-btn.sel{outline:2px solid var(--accent2);box-shadow:0 0 25px rgba(94,234,212,.5);}
+  .mute-wrap{position:fixed;top:12px;right:12px;z-index:999;display:flex;gap:8px;}
+  .mute-btn{position:relative;overflow:hidden;background:rgba(30,30,60,.6);border:1px solid rgba(94,234,212,.4);
+    color:#e6f7ff;padding:7px 14px;border-radius:20px;font-size:13px;cursor:pointer;backdrop-filter:blur(6px);
+    border:1px solid #3a3a6a;}
+  .mute-btn:hover{background:rgba(94,234,212,.2);box-shadow:0 0 15px rgba(94,234,212,.4);}
   .q-en{font-size:34px;font-weight:700;margin-bottom:6px;letter-spacing:1px;
     text-shadow:0 0 20px rgba(94,234,212,.4);}
   .q-zh{font-size:26px;font-weight:600;margin-bottom:18px;color:var(--accent2);
@@ -3684,6 +3689,12 @@ function showMenu(){
     b.onclick=()=>startRun(k);
     grid.appendChild(b);
   });
+  // 音效开关按钮
+  const muteBtn=el(`<button class="mute-btn" id="muteBtn">🔊 音效</button>`);
+  muteBtn.onclick=()=>{ Sfx.init(); Sfx.toggle(); muteBtn.textContent=Sfx.enabled?'🔊 音效':'🔇 静音'; };
+  if(ui.querySelector('.mute-wrap')) ui.querySelector('.mute-wrap').remove();
+  const wrap=el('<div class="mute-wrap"></div>'); wrap.appendChild(muteBtn);
+  ui.insertBefore(wrap, ui.firstChild);
 }
 function startRun(k){
   level=k; P={weapon:1,maxHp:HERO_MAX_HP,hp:HERO_MAX_HP,score:0,round:0,correct:0,wrong:0};
@@ -3740,8 +3751,8 @@ function answer(choice, correct, btn){
   const qhint=ui.querySelector('#qhint'); const btns=ui.querySelectorAll('.opt-btn');
   btns.forEach(b=>{ b.style.pointerEvents='none'; if(b.textContent===correct) b.classList.add('correct'); });
   if(!ok) btn.classList.add('wrong');
-  if(ok){ P.correct++; qhint.textContent='✔ 答对啦！请选择一项门之力加成'; }
-  else   { P.wrong++;   qhint.textContent='✘ 答错了。正确是「'+correct+'」本轮无加成，战斗继续…'; }
+  if(ok){ P.correct++; qhint.textContent='✔ 答对啦！请选择一项门之力加成'; Sfx.correct(); }
+  else   { P.wrong++;   qhint.textContent='✘ 答错了。正确是「'+correct+'」本轮无加成，战斗继续…'; Sfx.wrong(); }
   setTimeout(()=>{
     if(ok){ state='upgrade'; showUpgrade(); }
     else { enterBattle(); }
@@ -3764,8 +3775,8 @@ function showUpgrade(){
         <button class="upgrade-btn ammo">最大生命 +5<u>上限 ${P.maxHp} → ${P.maxHp+5} 并回满</u></button>
       </div>
     </div>`;
-  ui.querySelector('.w2').onclick=()=>{ P.weapon*=2; updateHeroWeapon(); applyUpgradeFlash('w2'); enterBattle(); };
-  ui.querySelector('.ammo').onclick=()=>{ P.maxHp+=5; P.hp=P.maxHp; applyUpgradeFlash('ammo'); enterBattle(); };
+  ui.querySelector('.w2').onclick=()=>{ Sfx.upgrade(); P.weapon*=2; updateHeroWeapon(); applyUpgradeFlash('w2'); enterBattle(); };
+  ui.querySelector('.ammo').onclick=()=>{ Sfx.upgrade(); P.maxHp+=5; P.hp=P.maxHp; applyUpgradeFlash('ammo'); enterBattle(); };
 }
 function applyUpgradeFlash(kind){
   const label = kind==='w2' ? '武器强化！' : '生命提升！';
@@ -3880,13 +3891,15 @@ function findNearestEnemy(){
 }
 function damageEnemy(e, dmg){
   e.hp -= dmg;
+  (e.type==='boss'?Sfx.bossHit():Sfx.hit());
   floatText(e.group.position.clone().add(new THREE.Vector3(0, e.type==='boss'?2.6:1.6, 0)), '-'+dmg, '#ffd27a');
   flashMesh(e.group);
   if(e.hp<=0){
     e.alive=false;
     e.group.visible=false;
     burstAt(e.group.position.clone(), e.type==='boss'?45:25, e.type==='boss');
-    if(e.type==='boss'){ winBurst(); screenShake(0.25); }
+    Sfx.explode();
+    if(e.type==='boss'){ winBurst(); screenShake(0.25); Sfx.win(); }
     else { screenShake(0.08); }
   }
 }
@@ -3913,6 +3926,7 @@ function battleTick(now){
     if(target){
       punch(heroGroup.position.clone().add(new THREE.Vector3(0,2.2,0)),
             target.group.position.clone().add(new THREE.Vector3(0, target.type==='boss'?2:1, 0)), 180, null);
+      Sfx.swing();
       damageEnemy(target, P.weapon);
       updateBars();
     }
@@ -3930,7 +3944,7 @@ function battleTick(now){
       if(now >= e.nextMelee){
         e.nextMelee = now + MELEE_INTERVAL*1000;
         P.hp = Math.max(0, P.hp - e.atk);
-        flashHero(); damageFlash(); screenShake(0.22);
+        flashHero(); damageFlash(); screenShake(0.22); Sfx.hurt();
         floatText(heroGroup.position.clone().add(new THREE.Vector3(0,2.8,0)), '-'+e.atk, '#ff7a7a');
         updateBars();
         if(P.hp<=0){ endCombat(false); return; }
@@ -3964,6 +3978,7 @@ function completeStage(){
 function gameOver(){
   clearEnemies();
   state='menu';
+  Sfx.lose();
   ui.innerHTML=`
     <div class="panel">
       <h1 class="title">挑战结束</h1>
@@ -3979,6 +3994,71 @@ function gameOver(){
 }
 
 /* ============ 工具函数 ============ */
+
+/* ============ 炫酷音效引擎（Web Audio 合成，无需外部文件） ============ */
+const Sfx = {
+  ctx:null, master:null, enabled:true, vol:0.5,
+  init(){
+    if(this.ctx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return;
+    this.ctx = new AC();
+    this.master = this.ctx.createGain();
+    this.master.gain.value = this.vol;
+    this.master.connect(this.ctx.destination);
+  },
+  toggle(){ this.enabled = !this.enabled; return this.enabled; },
+  // 基础合成：振荡器 + 包络
+  tone(freq, dur, type, vol, slideTo, delay){
+    if(!this.enabled) return;
+    this.init();
+    if(!this.ctx) return;
+    const t = this.ctx.currentTime + (delay||0);
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, t);
+    if(slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(1,slideTo), t+dur);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol||0.3, t+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    osc.connect(g); g.connect(this.master);
+    osc.start(t); osc.stop(t+dur+0.05);
+  },
+  noise(dur, vol, delay){
+    if(!this.enabled) return;
+    this.init();
+    if(!this.ctx) return;
+    const t = this.ctx.currentTime + (delay||0);
+    const len = Math.floor(this.ctx.sampleRate * dur);
+    const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*(1-i/len);
+    const src=this.ctx.createBufferSource(); src.buffer=buf;
+    const g=this.ctx.createGain();
+    g.gain.setValueAtTime(vol||0.3, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    const f=this.ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=3000;
+    src.connect(f); f.connect(g); g.connect(this.master);
+    src.start(t);
+  },
+  // 各场景音效
+  click(){ this.tone(660,0.06,'square',0.12); },
+  hover(){ this.tone(880,0.03,'sine',0.05); },
+  correct(){ this.tone(523,0.09,'triangle',0.25); this.tone(784,0.12,'triangle',0.28,0,0.09); this.tone(1046,0.18,'triangle',0.3,0,0.18); },
+  wrong(){ this.tone(220,0.18,'sawtooth',0.2,110); },
+  upgrade(){ this.tone(660,0.1,'sawtooth',0.22); this.tone(880,0.12,'sawtooth',0.24,0,0.09); this.tone(1320,0.2,'square',0.22,0,0.18); },
+  swing(){ this.noise(0.12,0.15); },
+  hit(){ this.tone(300,0.08,'square',0.2,180); this.noise(0.06,0.12); },
+  bossHit(){ this.tone(200,0.1,'square',0.3,120); this.noise(0.1,0.18); },
+  explode(){ this.noise(0.4,0.4); this.tone(120,0.4,'sawtooth',0.25,40); },
+  hurt(){ this.tone(180,0.2,'sawtooth',0.3,80); this.noise(0.15,0.2); },
+  win(){ this.tone(523,0.15,'triangle',0.3); this.tone(659,0.15,'triangle',0.3,0,0.12); this.tone(784,0.15,'triangle',0.3,0,0.24); this.tone(1046,0.4,'triangle',0.35,0,0.36); },
+  lose(){ this.tone(311,0.3,'sawtooth',0.25,155); this.tone(233,0.4,'sawtooth',0.25,116,0.25); },
+};
+// 全局 bpm/音量开关（键盘 M 静音）
+window.addEventListener('keydown',(e)=>{ if(e.key==='m'||e.key==='M'){ Sfx.toggle(); const t=el(`<div class="float dmg" style="left:50%;top:30%;transform:translateX(-50%);color:${Sfx.enabled?'#5eead4':'#ff7a7a'}">${Sfx.enabled?'🔊 音效开启':'🔇 音效静音'}</div>`); ui.appendChild(t); setTimeout(()=>t.remove(),900); } });
+
 function disposeGroup(o){ o.traverse(c=>{ if(c.geometry)c.geometry.dispose(); if(c.material)Array.isArray(c.material)?c.material.forEach(m=>m.dispose()):c.material.dispose(); }); }
 function removeMonster(){ if(monsterGroup){ scene.remove(monsterGroup); disposeGroup(monsterGroup); monsterGroup=null; } }
 function flashMonster(){ flashMesh(monsterGroup); }
@@ -4145,6 +4225,8 @@ renderer.setSize(innerWidth,innerHeight);
 // 初始显示主菜单
 state='menu'; showMenu();
 updateHeroWeapon();
+// 首次用户交互时解锁音频上下文（浏览器策略限制）
+window.addEventListener('pointerdown',()=>{ Sfx.init(); }, {once:true});
 animate();
 </script>
 </body>
