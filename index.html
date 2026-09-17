@@ -48,8 +48,11 @@
     -webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;
     box-shadow:0 0 40px rgba(63,174,90,.12),0 18px 60px rgba(90,80,50,.28);
     pointer-events:auto;animation:pop .3s cubic-bezier(.34,1.56,.64,1);}
-  .panel::-webkit-scrollbar{width:6px}
-  .panel::-webkit-scrollbar-thumb{background:rgba(63,174,90,.3);border-radius:3px}
+  .panel::-webkit-scrollbar{width:16px;height:16px}
+  .panel::-webkit-scrollbar-track{background:rgba(63,174,90,.08);border-radius:10px}
+  .panel::-webkit-scrollbar-thumb{background:rgba(63,174,90,.55);border:3px solid rgba(253,250,241,.92);border-radius:10px;min-height:44px;min-width:44px}
+  .panel::-webkit-scrollbar-thumb:hover{background:rgba(63,174,90,.8)}
+  .panel{scrollbar-width:auto;scrollbar-color:rgba(63,174,90,.55) rgba(63,174,90,.08);}
   @keyframes pop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
   /* ============ 主菜单：战士居中 + 环绕拨盘选科 ============ */
   .home{position:absolute;inset:0;pointer-events:none;
@@ -186,8 +189,10 @@
   /* 宽面板（可滚动，用于章节选择/图鉴/成就） */
   .panel.wide{width:min(94%,620px);max-height:88%;overflow-y:auto;overflow-x:hidden;text-align:left;padding:20px 22px;
     -webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;}
-  .panel.wide::-webkit-scrollbar{width:8px}
-  .panel.wide::-webkit-scrollbar-thumb{background:rgba(63,174,90,.35);border-radius:4px}
+  .panel.wide::-webkit-scrollbar{width:16px;height:16px}
+  .panel.wide::-webkit-scrollbar-track{background:rgba(63,174,90,.08);border-radius:10px}
+  .panel.wide::-webkit-scrollbar-thumb{background:rgba(63,174,90,.55);border:3px solid rgba(253,250,241,.92);border-radius:10px;min-height:44px;min-width:44px}
+  .panel.wide::-webkit-scrollbar-thumb:hover{background:rgba(63,174,90,.8)}
   .wb-list{overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
   .panel.wide h1.title{text-align:center;}
   /* 档案栏（主菜单顶部） */
