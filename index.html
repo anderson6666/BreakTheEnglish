@@ -26,7 +26,12 @@
   /* 手机竖屏：整个游戏旋转90度铺满，画面始终为横屏体验（横放手机时不旋转） */
   @media (orientation:portrait) and (pointer:coarse){
     #app{top:0;left:100vw;width:100vh;height:100vw;transform-origin:left top;transform:rotate(90deg);}
+    /* 旋转态下 vw/vh 含义互换：可视宽=100vh(长边)、可视高=100vw(短边)。所有 vh 尺寸必须换算，否则面板超出可视高度被截断 */
+    .panel{width:min(92vh,460px);max-height:92vw;padding:16px 16px 10px;}
+    .panel.wide{width:min(94vh,620px);max-height:88vw;}
+    .save-box{width:min(460px,92vh);max-height:78vw;}
     .wb-list{max-height:54vw!important;}
+    .opt-btn{margin-top:6px;font-size:15px;}
   }
   #game{position:absolute;inset:0;display:block;touch-action:none;}
   /* 覆盖 UI */
@@ -144,6 +149,9 @@
     text-shadow:0 1px 4px rgba(255,253,246,.8);animation:tipPulse 2s ease-in-out infinite;}
   @keyframes tipPulse{0%,100%{opacity:.6}50%{opacity:1}}
   .btn-row{display:flex;gap:12px;justify-content:center;margin-top:18px;}
+  /* 面板内滚动时“继续”按钮吸底：小屏/横屏解析很长也始终可见可点 */
+  .panel .btn-row{position:sticky;bottom:0;z-index:2;background:rgba(253,250,241,.97);
+    border-radius:14px;padding:10px 0 2px;margin-top:14px;}
   .btn-main{background:linear-gradient(90deg,#3fae5a,#2e8b57);border:none;color:#fff;border-radius:12px;
     padding:13px 26px;font-size:15px;cursor:pointer;font-weight:600;
     box-shadow:0 0 20px rgba(63,174,90,.35);transition:.2s;}
