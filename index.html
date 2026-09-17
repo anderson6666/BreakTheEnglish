@@ -22,16 +22,27 @@
   #bgParticles span{position:absolute;width:3px;height:3px;border-radius:50%;background:#a8c99a;opacity:.35;
     animation:floatP linear infinite;}
   @keyframes floatP{0%{transform:translateY(0) translateX(0);opacity:0}10%{opacity:.6}90%{opacity:.6}100%{transform:translateY(-110vh) translateX(20px);opacity:0}}
-  #app{position:fixed;inset:0;z-index:1;}
+  #app{position:fixed;inset:0;z-index:1;container-type:size;}  /* UI 尺寸用 cqw/cqh 跟随本框，而非手机屏幕 vw/vh */
+  /* 竖屏旋转态：画面16:9居中后，屏幕上下多出的条带用动态幻彩流光填充（--gap 高度由 applyRot 注入） */
+  #rotFill{display:none;position:fixed;inset:0;z-index:0;pointer-events:none;--gap:0px;}
+  #rotFill::before,#rotFill::after{content:'';position:absolute;left:0;right:0;height:var(--gap);
+    background:linear-gradient(90deg,#ff6ec4,#ffc3a0,#a18cd1,#84fab0,#8fd3f4,#c2e9fb,#ff9a9e,#ff6ec4);
+    background-size:200% 100%;
+    animation:rotIrid 14s linear infinite,rotHue 9s linear infinite;opacity:.95;}
+  #rotFill::before{top:0;}
+  #rotFill::after{bottom:0;}
+  @keyframes rotIrid{from{background-position:0% 0}to{background-position:-200% 0}}
+  @keyframes rotHue{from{filter:hue-rotate(0deg) saturate(1.35)}to{filter:hue-rotate(360deg) saturate(1.35)}}
   /* 手机竖屏：整个游戏旋转90度铺满，画面始终为横屏体验（横放手机时不旋转） */
   @media (orientation:portrait) and (pointer:coarse){
     #app{transform-origin:left top;transform:rotate(90deg);}  /* 尺寸由 applyRot() 按像素设置，避开移动端 100vh 含地址栏的偏差 */
-    /* 旋转态下 vw/vh 含义互换：可视宽=100vh(长边)、可视高=100vw(短边)。vh 尺寸必须换算，否则面板超出可视高度被截断 */
-    .panel{width:min(92vh,460px);max-height:92vw;padding:16px 16px 10px;}
-    .panel.wide{width:min(94vh,620px);max-height:88vw;}
-    .save-box{width:min(460px,92vh);max-height:78vw;}
-    .wb-list{max-height:54vw!important;}
+    /* 面板尺寸跟随 #app 容器（=游戏16:9画面框），不再用屏幕 vw/vh，比例与画面一致 */
+    .panel{width:min(92cqw,460px);max-height:92cqh;padding:16px;overflow-y:auto;}
+    .panel.wide{width:min(94cqw,620px);max-height:88cqh;}
+    .save-box{width:min(460px,92cqw);max-height:78cqh;}
+    .wb-list{max-height:54cqh!important;}
     .opt-btn{margin-top:6px;font-size:15px;}
+    body .panel #whyWrap,body .panel #whyBox{padding-bottom:6px;}
     /* 主菜单紧凑化：旋转后逻辑屏高仅手机短边(约360-400px)，默认布局约400px会把底部按钮排挤出屏幕 */
     .home .home-top{padding:4px 10px 0;}
     .home .logo-wrap{display:none!important;}
@@ -45,12 +56,17 @@
     .home-mini{padding:4px 8px 8px;gap:6px;}
     .mini-btn{font-size:11.5px;padding:6px 9px;}
   }
+  /* 横屏手机（不旋转）：面板尺寸同样跟随 #app 容器 */
+  @media (orientation:landscape) and (pointer:coarse){
+    .panel{max-height:90cqh;overflow-y:auto;}
+    body .panel #whyWrap,body .panel #whyBox{padding-bottom:6px;}
+  }
   #game{position:absolute;inset:0;display:block;touch-action:none;}
   /* 覆盖 UI */
   #ui{position:absolute;inset:0;pointer-events:none;}
-  .panel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(92vw,460px);
+  .panel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(92cqw,460px);
     background:rgba(253,250,241,.92);border:1px solid rgba(63,174,90,.4);border-radius:18px;
-    padding:26px;text-align:center;backdrop-filter:blur(12px);max-height:92vh;overflow-y:auto;
+    padding:26px;text-align:center;backdrop-filter:blur(12px);max-height:92cqh;overflow-y:auto;
     box-shadow:0 0 40px rgba(63,174,90,.12),0 18px 60px rgba(90,80,50,.28);
     pointer-events:auto;animation:pop .3s cubic-bezier(.34,1.56,.64,1);}
   .panel::-webkit-scrollbar{width:6px}
@@ -64,7 +80,7 @@
   .home .home-top .sub{margin:0 0 6px;}
   .home .pf-bar{justify-content:center;}
   .home .bonus-row{margin:0;text-align:center;}
-  .home-radial{position:relative;width:min(96vw,430px);flex:1 1 auto;min-height:140px;
+  .home-radial{position:relative;width:min(96cqw,430px);flex:1 1 auto;min-height:140px;
     margin:0 auto;pointer-events:none;}
 
   .home-mini{position:relative;margin-top:auto;padding:8px 14px 16px;display:flex;
@@ -101,7 +117,7 @@
   .load-btn:hover{background:rgba(63,174,90,.28);box-shadow:0 0 18px rgba(63,174,90,.4);}
   .save-overlay{position:absolute;inset:0;z-index:998;background:rgba(58,58,46,.35);backdrop-filter:blur(6px);
     display:flex;align-items:center;justify-content:center;padding:20px;pointer-events:auto;}
-  .save-box{width:min(460px,92vw);max-height:78vh;overflow:auto;background:rgba(253,250,241,.97);
+  .save-box{width:min(460px,92cqw);max-height:78cqh;overflow:auto;background:rgba(253,250,241,.97);
     border:1px solid rgba(63,174,90,.4);border-radius:18px;padding:22px;box-shadow:0 0 40px rgba(63,174,90,.18);}
   .save-box h2{margin:0 0 6px;color:var(--accent2);text-shadow:0 0 12px rgba(63,174,90,.3);}
   .save-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
@@ -136,7 +152,7 @@
   /* 血条 */
   .bar-row{position:absolute;left:50%;transform:translateX(-50%);}
   .bar-row.top{top:14px;} .bar-row.bottom{bottom:14px;}
-  .bar{width:min(72vw,380px);height:16px;background:rgba(90,80,50,.15);border:1px solid rgba(90,80,50,.3);
+  .bar{width:min(72cqw,380px);height:16px;background:rgba(90,80,50,.15);border:1px solid rgba(90,80,50,.3);
     border-radius:10px;overflow:hidden;box-shadow:inset 0 2px 6px rgba(90,80,50,.15);}
   .bar>i{display:block;height:100%;width:100%;transition:width .35s cubic-bezier(.4,0,.2,1);}
   .bar.hero>i{background:linear-gradient(90deg,#3fae5a,#6cc47f);box-shadow:0 0 10px rgba(63,174,90,.5);}
@@ -162,8 +178,8 @@
   @keyframes tipPulse{0%,100%{opacity:.6}50%{opacity:1}}
   .btn-row{display:flex;gap:12px;justify-content:center;margin-top:18px;}
   /* 面板内滚动时“继续”按钮吸底：小屏/横屏解析很长也始终可见可点 */
-  .panel .btn-row{position:sticky;bottom:0;z-index:2;background:rgba(253,250,241,.97);
-    border-radius:14px;padding:10px 0 2px;margin-top:14px;}
+  /* “继续/下一步”按钮为普通文档流：排在解析文字之后，不悬浮不吸底 */
+  /* 旧吸底按钮已删除：按钮随解析文字自然排在面板末尾 */
   .btn-main{background:linear-gradient(90deg,#3fae5a,#2e8b57);border:none;color:#fff;border-radius:12px;
     padding:13px 26px;font-size:15px;cursor:pointer;font-weight:600;
     box-shadow:0 0 20px rgba(63,174,90,.35);transition:.2s;}
@@ -188,7 +204,7 @@
 
   /* ============ v3：养成 / 章节 / 卡牌 / 成就 / 技能 ============ */
   /* 宽面板（可滚动，用于章节选择/图鉴/成就） */
-  .panel.wide{width:min(94vw,620px);max-height:88vh;overflow-y:auto;overflow-x:hidden;text-align:left;padding:20px 22px;}
+  .panel.wide{width:min(94cqw,620px);max-height:88cqh;overflow-y:auto;overflow-x:hidden;text-align:left;padding:20px 22px;}
   .panel.wide::-webkit-scrollbar{width:8px}
   .panel.wide::-webkit-scrollbar-thumb{background:rgba(63,174,90,.35);border-radius:4px}
   .panel.wide h1.title{text-align:center;}
@@ -291,7 +307,7 @@
     background:rgba(253,250,241,.96);border:1px solid rgba(63,174,90,.5);border-radius:14px;
     padding:10px 22px;font-size:14px;font-weight:600;color:var(--ink);
     box-shadow:0 8px 30px rgba(90,80,50,.3),0 0 20px rgba(63,174,90,.2);
-    animation:toastIn .35s cubic-bezier(.34,1.56,.64,1);pointer-events:none;max-width:86vw;text-align:center;}
+    animation:toastIn .35s cubic-bezier(.34,1.56,.64,1);pointer-events:none;max-width:86cqw;text-align:center;}
   .toast.out{animation:toastOut .4s ease forwards;}
   @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-24px) scale(.85)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
   @keyframes toastOut{to{opacity:0;transform:translateX(-50%) translateY(-16px) scale(.9)}}
@@ -414,12 +430,15 @@
 </head>
 <body>
 <div id="bgParticles"></div>
+<div id="rotFill" aria-hidden="true"></div>
 <div id="damageFlash"></div>
 <div id="lvFlash"></div>
 <div id="vignette"></div>
 <div id="app">
   <canvas id="game"></canvas>
   <div id="ui"></div>
+  <!-- 音乐按钮在 #app 内：旋转模式下随画面框定位(父级transform成为fixed包含块)，桌面端仍相对视口 -->
+  <button id="bgmToggle" title="关闭声音(音效+音乐)" style="position:fixed;right:14px;bottom:14px;z-index:9999;width:44px;height:44px;border-radius:50%;border:1px solid rgba(63,174,90,.4);background:rgba(255,255,255,.85);color:#2e5c40;font-size:19px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;transition:.2s;">🔊</button>
 </div>
 
 <script type="importmap">
@@ -4038,7 +4057,7 @@ function xpNeed(){ return 100; }
 // Toast 通知
 function toast(msg, kind){
   const t=el(`<div class="toast ${kind||''}">${msg}</div>`);
-  document.body.appendChild(t);
+  document.getElementById('app').appendChild(t);   // 追加进 #app：随旋转框定位，尺寸单位 cqw 生效
   setTimeout(()=>{ t.classList.add('out'); setTimeout(()=>t.remove(),420); }, 2400);
 }
 // 升级金闪
@@ -4202,20 +4221,27 @@ const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0x0d0d1a, 26, 46);
-/* 手机竖屏旋转90度：CSS 把 #app 转90度铺满，渲染/交互用逻辑宽高（旋转后宽=innerHeight） */
+/* 手机竖屏旋转90度：画面高强制=屏幕短边(上下边框贴屏幕左右)，宽=min(长边, 高×16/9)居中；
+   屏幕上下多出的部分用动态幻彩填充（#rotFill），不再强行拉伸铺满 */
 const _mqCoarse = matchMedia('(pointer:coarse)');
+const _rot = { on:false, w:0, h:0, top:0 };
 function rot90(){ return _mqCoarse.matches && innerHeight > innerWidth; }
-function viewSize(){
-  const rot = rot90();
-  return { rot, w: rot ? innerHeight : innerWidth, h: rot ? innerWidth : innerHeight };
-}
-/* 旋转态按像素精确设置 #app 尺寸（CSS 100vh 在移动端含地址栏会偏大，导致右侧内容被截） */
+function viewSize(){ return { rot:_rot.on, w:_rot.on?_rot.w:innerWidth, h:_rot.on?_rot.h:innerHeight }; }
 function applyRot(){
-  const a = document.getElementById('app');
+  const a = document.getElementById('app'), fill = document.getElementById('rotFill');
   if(rot90()){
-    a.style.top='0'; a.style.left=innerWidth+'px';
-    a.style.width=innerHeight+'px'; a.style.height=innerWidth+'px';
-  } else a.style.cssText='';
+    const h = innerWidth;                                  // 画面高=屏幕短边
+    const w = Math.min(innerHeight, Math.round(h*16/9));   // 画面宽≤长边，保持16:9
+    const top = Math.max(0, Math.round((innerHeight-w)/2));// 旋转后画面竖直居中
+    _rot.on=true; _rot.w=w; _rot.h=h; _rot.top=top;
+    a.style.top=top+'px'; a.style.left=innerWidth+'px';
+    a.style.width=w+'px'; a.style.height=h+'px';
+    const gap = Math.max(0, innerHeight-w);
+    fill.style.display = gap>2 ? 'block' : 'none';
+    fill.style.setProperty('--gap', (gap/2)+'px');
+  } else {
+    _rot.on=false; a.style.cssText=''; fill.style.display='none';
+  }
 }
 applyRot();
 addEventListener('orientationchange', ()=>{ applyRot(); });
@@ -4829,7 +4855,7 @@ function dialSlotFor(i){                                  // 把第 i 个按钮�
 const _ndc=new THREE.Vector2(), _ray=new THREE.Raycaster();
 function dialPick(x,y){
   let px=x, py=y;
-  if(rot90()){ px=y; py=innerWidth-x; }                  // 手机旋转90度：屏幕坐标→逻辑渲染坐标
+  if(rot90()){ px=y-_rot.top; py=innerWidth-x; }            // 手机旋转90度：屏幕坐标→逻辑渲染坐标(含画面居中偏移)
   const v=viewSize();
   _ndc.set(px/v.w*2-1, -(py/v.h*2-1));
   _ray.setFromCamera(_ndc,camera);
@@ -5100,7 +5126,7 @@ function showWrongBook(){
       <h1 class="title">📒 错题本</h1>
       <div class="sub">共 ${wb.length} 条 · 已保存在本地浏览器</div>
       ${wb.length?`<div class="btn-row" style="margin:6px 0 4px"><button class="mini-btn" id="wbClear">🗑 清空错题本</button></div>`:''}
-      <div id="wbList" class="wb-list" style="max-height:60vh;overflow:auto;text-align:left">
+      <div id="wbList" class="wb-list" style="max-height:60cqh;overflow:auto;text-align:left">
         ${wb.length? wb.map(w=>`
           <div class="wb-item" style="background:#fdf6e3;border:1px solid #e8d9b8;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:13px">
             <div class="wb-meta" style="font-size:11px;color:#8a6d3b">${w.sub} · ${w.book} · ${w.sec} · 错${w.count}次 · ${new Date(w.t).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
@@ -6510,8 +6536,39 @@ const Sfx = {
     this.noise(0.4,0.35,0.5,300);
   },
 };
-// 全局 bpm/音量开关（键盘 M 静音）
-window.addEventListener('keydown',(e)=>{ if(e.key==='m'||e.key==='M'){ Sfx.toggle(); const t=el(`<div class="float dmg" style="left:50%;top:30%;transform:translateX(-50%);color:${Sfx.enabled?'#2e9e57':'#e04444'}">${Sfx.enabled?'🔊 音效开启':'🔇 音效静音'}</div>`); ui.appendChild(t); setTimeout(()=>t.remove(),900); } });
+/* ============ 统一声音总开关：一个音乐按钮掌管所有音效 + 背景音乐 ============ */
+const _bgm = document.getElementById('bgm');
+const _sgBtn = document.getElementById('bgmToggle');
+let soundOn = localStorage.getItem('bt_sound') !== 'off';   // 默认开启，尊重用户先前关闭
+if(_bgm){ _bgm.volume = 0.15; _bgm.loop = true; }
+function soundApply(){
+  Sfx.enabled = soundOn;                                  // 音效：总开关直接接管 Sfx 静音标志
+  if(_sgBtn){
+    _sgBtn.style.opacity = soundOn ? '1' : '.6';
+    _sgBtn.textContent = soundOn ? '🔊' : '🔇';
+    _sgBtn.title = soundOn ? '关闭声音(音效+音乐)' : '开启声音(音效+音乐)';
+  }
+  if(_bgm){
+    if(soundOn) _bgm.play().catch(()=>{});                 // 背景音乐：同步播放/暂停
+    else _bgm.pause();
+  }
+}
+window.soundToggle = () => {
+  soundOn = !soundOn;
+  try{ localStorage.setItem('bt_sound', soundOn ? 'on' : 'off'); }catch(_){}
+  soundApply();
+};
+window.soundOn = () => soundOn;
+if(_sgBtn) _sgBtn.addEventListener('click', (e)=>{ e.stopPropagation(); window.soundToggle(); });
+// 首次用户交互时若声音为开则自动播放（规避浏览器自动播放拦截）
+window.addEventListener('pointerdown', ()=>{ if(soundOn) soundApply(); }, {once:true});
+soundApply();
+// 键盘 M：同样走统一总开关（同一状态）
+window.addEventListener('keydown',(e)=>{ if(e.key==='m'||e.key==='M'){
+  window.soundToggle();
+  const t=el(`<div class="float dmg" style="left:50%;top:30%;transform:translateX(-50%);color:${soundOn?'#2e9e57':'#e04444'}">${soundOn?'🔊 声音开启(音效+音乐)':'🔇 声音静音'}</div>`);
+  ui.appendChild(t); setTimeout(()=>t.remove(),900);
+} });
 
 function disposeGroup(o){ o.traverse(c=>{ if(c.geometry)c.geometry.dispose(); if(c.material)Array.isArray(c.material)?c.material.forEach(m=>m.dispose()):c.material.dispose(); }); }
 function removeMonster(){ if(monsterGroup){ scene.remove(monsterGroup); disposeGroup(monsterGroup); monsterGroup=null; } }
@@ -6820,26 +6877,5 @@ window.addEventListener('pointerdown',()=>{ Sfx.init(); }, {once:true});
 animate();
 </script>
 <audio id="bgm" src="music.mp3" preload="auto" loop></audio>
-<!-- 舒缓背景音乐开关（首次用户交互时才会真正播放，规避浏览器自动播放拦截） -->
-<button id="bgmToggle" title="背景音乐" style="position:fixed;right:14px;bottom:14px;z-index:9999;width:44px;height:44px;border-radius:50%;border:1px solid rgba(63,174,90,.4);background:rgba(255,255,255,.85);color:#2e5c40;font-size:19px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;transition:.2s;">🎵</button>
-<script>
-(function(){
-  const bgm = document.getElementById('bgm');
-  const btn = document.getElementById('bgmToggle');
-  let on = false;
-  if(!bgm) return;
-  bgm.volume = 0.15;      // 音量调小，舒缓不吵
-  bgm.loop = true;
-  const tryPlay = ()=>{
-    if(on){ bgm.pause(); on=false; btn.style.opacity='.6'; }
-    else{
-      bgm.play().then(()=>{ on=true; btn.style.opacity='1'; }).catch(()=>{ /* 浏览器仍拦截，等待下一次交互 */ });
-    }
-  };
-  btn.addEventListener('click', (e)=>{ e.stopPropagation(); tryPlay(); });
-  // 首次用户交互(点击/触摸)时若音乐尚未开启，则尝试自动开启（尊重用户未主动关闭的情形）
-  window.addEventListener('pointerdown', ()=>tryPlay(), {once:true});
-})();
-</script>
 </body>
 </html>
