@@ -4215,8 +4215,10 @@ const _rot = { on:false, w:0, h:0, top:0 };
 function rot90(){ return _mqCoarse.matches && innerHeight > innerWidth; }
 function viewSize(){ return { rot:_rot.on, w:_rot.on?_rot.w:innerWidth, h:_rot.on?_rot.h:innerHeight }; }
 /* UI 等比缩放：#ui 层按画面高/600 缩放，得到与桌面完全相同再整体缩小的布局——
-   按钮大小与位置随画面等比变化。纯 transform 实现（zoom 在部分手机浏览器对 inset+width
-   过约束解析不一致曾导致底部按钮被推出可视区），显式像素尺寸+覆盖 inset 避免歧义 */
+   按钮大小与位置随画面等比变化。用 zoom 实现，避免对滚动面板引入 transform 祖先：
+   父级（#ui）带 transform 会在 iOS 上生成独立复合层，导致内层 overflow 容器
+   无法触摸滚动（滚动条/程序化滚动仍正常）。zoom 在 Chrome/Safari/Firefox126+ 均支持；
+   inset 采用显式像素+覆盖 right/bottom，规避旧版过约束问题 */
 let UIZ = 1;
 function applyUIScale(){
   const v = viewSize();
@@ -4230,7 +4232,7 @@ function applyUIScale(){
   }
   u.style.left='0'; u.style.top='0'; u.style.right='auto'; u.style.bottom='auto';
   u.style.width = (v.w/UIZ)+'px'; u.style.height = (v.h/UIZ)+'px';
-  u.style.transform = 'scale('+UIZ+')'; u.style.transformOrigin = '0 0';
+  u.style.zoom = UIZ;
   if(b){ b.style.transform = 'scale('+UIZ+')'; b.style.transformOrigin = '100% 100%'; }
 }
 function applyRot(){
