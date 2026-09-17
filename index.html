@@ -25,13 +25,25 @@
   #app{position:fixed;inset:0;z-index:1;}
   /* 手机竖屏：整个游戏旋转90度铺满，画面始终为横屏体验（横放手机时不旋转） */
   @media (orientation:portrait) and (pointer:coarse){
-    #app{top:0;left:100vw;width:100vh;height:100vw;transform-origin:left top;transform:rotate(90deg);}
-    /* 旋转态下 vw/vh 含义互换：可视宽=100vh(长边)、可视高=100vw(短边)。所有 vh 尺寸必须换算，否则面板超出可视高度被截断 */
+    #app{transform-origin:left top;transform:rotate(90deg);}  /* 尺寸由 applyRot() 按像素设置，避开移动端 100vh 含地址栏的偏差 */
+    /* 旋转态下 vw/vh 含义互换：可视宽=100vh(长边)、可视高=100vw(短边)。vh 尺寸必须换算，否则面板超出可视高度被截断 */
     .panel{width:min(92vh,460px);max-height:92vw;padding:16px 16px 10px;}
     .panel.wide{width:min(94vh,620px);max-height:88vw;}
     .save-box{width:min(460px,92vh);max-height:78vw;}
     .wb-list{max-height:54vw!important;}
     .opt-btn{margin-top:6px;font-size:15px;}
+    /* 主菜单紧凑化：旋转后逻辑屏高仅手机短边(约360-400px)，默认布局约400px会把底部按钮排挤出屏幕 */
+    .home .home-top{padding:4px 10px 0;}
+    .home .logo-wrap{display:none!important;}
+    .home .home-top .title{font-size:19px;margin:0 0 1px;}
+    .home .home-top .sub{font-size:11px;margin:0 0 4px;}
+    .pf-bar{font-size:12px;padding:4px 10px;margin:4px 0 2px;gap:8px;}
+    .pf-bar .xpbar{width:70px;}
+    .bonus-row{margin:0;}
+    .bonus-chip{font-size:10px;}
+    .home-radial{min-height:80px;}
+    .home-mini{padding:4px 8px 8px;gap:6px;}
+    .mini-btn{font-size:11.5px;padding:6px 9px;}
   }
   #game{position:absolute;inset:0;display:block;touch-action:none;}
   /* 覆盖 UI */
@@ -4197,6 +4209,16 @@ function viewSize(){
   const rot = rot90();
   return { rot, w: rot ? innerHeight : innerWidth, h: rot ? innerWidth : innerHeight };
 }
+/* 旋转态按像素精确设置 #app 尺寸（CSS 100vh 在移动端含地址栏会偏大，导致右侧内容被截） */
+function applyRot(){
+  const a = document.getElementById('app');
+  if(rot90()){
+    a.style.top='0'; a.style.left=innerWidth+'px';
+    a.style.width=innerHeight+'px'; a.style.height=innerWidth+'px';
+  } else a.style.cssText='';
+}
+applyRot();
+addEventListener('orientationchange', ()=>{ applyRot(); });
 const camera = new THREE.PerspectiveCamera(45, viewSize().w/viewSize().h, 0.1, 100);
 camera.position.set(0, 12.5, 9.5); camera.lookAt(0, 0, -1.5);
 
@@ -6783,6 +6805,7 @@ function animate(){
   renderer.render(scene,camera);
 }
 window.addEventListener('resize',()=>{
+  applyRot();                                            // 旋转态尺寸随窗口像素重算
   const v = viewSize();                                 // 手机竖屏旋转时宽高互换
   camera.aspect = v.w/v.h; camera.updateProjectionMatrix();
   renderer.setSize(v.w, v.h);
