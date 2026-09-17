@@ -1,9 +1,9 @@
-# 内部工作文件（题库修复工具链，不部署）
-_backup_index*.html
-_fix*.js
-_patch*.txt
-_review*.txt
-_export*.js
-_check*.mjs
-_extract*.js
-_sim*.js
+# 内部工作文件（题库构建/校验工具链与备份，不部署）
+_*
+*.bak
+*.bak2
+*.bak_new
+*backup*
+backup*
+_count_report.txt
+index.mm_backup.html

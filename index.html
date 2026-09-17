@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-<title>词汇勇者：答题闯关</title>
+<title>勇者之路</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Ccircle cx='48' cy='48' r='44' fill='%23fdfaf1' stroke='%233fae5a' stroke-width='5'/%3E%3Cpath d='M26 62 Q40 56 48 62 Q56 56 70 62 L70 50 Q56 44 48 50 Q40 44 26 50 Z' fill='%237cc97f' stroke='%232e8b57' stroke-width='2.5'/%3E%3Cpath d='M48 14 L54 26 L54 52 L48 58 L42 52 L42 26 Z' fill='%23ffd27a' stroke='%23d48806' stroke-width='2.5'/%3E%3Crect x='34' y='52' width='28' height='6' rx='3' fill='%23d48806'/%3E%3Crect x='44.5' y='58' width='7' height='14' rx='3' fill='%236b4a2f'/%3E%3Ccircle cx='48' cy='74' r='4.5' fill='%23ffd27a'/%3E%3C/svg%3E">
 <style>
   :root{
@@ -21,15 +23,35 @@
     animation:floatP linear infinite;}
   @keyframes floatP{0%{transform:translateY(0) translateX(0);opacity:0}10%{opacity:.6}90%{opacity:.6}100%{transform:translateY(-110vh) translateX(20px);opacity:0}}
   #app{position:fixed;inset:0;z-index:1;}
-  #game{position:absolute;inset:0;display:block;}
+  /* 手机竖屏：整个游戏旋转90度铺满，画面始终为横屏体验（横放手机时不旋转） */
+  @media (orientation:portrait) and (pointer:coarse){
+    #app{top:0;left:100vw;width:100vh;height:100vw;transform-origin:left top;transform:rotate(90deg);}
+    .wb-list{max-height:54vw!important;}
+  }
+  #game{position:absolute;inset:0;display:block;touch-action:none;}
   /* 覆盖 UI */
   #ui{position:absolute;inset:0;pointer-events:none;}
   .panel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(92vw,460px);
     background:rgba(253,250,241,.92);border:1px solid rgba(63,174,90,.4);border-radius:18px;
-    padding:26px;text-align:center;backdrop-filter:blur(12px);
+    padding:26px;text-align:center;backdrop-filter:blur(12px);max-height:92vh;overflow-y:auto;
     box-shadow:0 0 40px rgba(63,174,90,.12),0 18px 60px rgba(90,80,50,.28);
     pointer-events:auto;animation:pop .3s cubic-bezier(.34,1.56,.64,1);}
+  .panel::-webkit-scrollbar{width:6px}
+  .panel::-webkit-scrollbar-thumb{background:rgba(63,174,90,.3);border-radius:3px}
   @keyframes pop{from{transform:translate(-50%,-50%) scale(.85);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
+  /* ============ 主菜单：战士居中 + 环绕拨盘选科 ============ */
+  .home{position:absolute;inset:0;pointer-events:none;
+    display:flex;flex-direction:column;align-items:stretch;}
+  .home .home-top{position:relative;padding:10px 16px 2px;text-align:center;z-index:3;}
+  .home .home-top .title{font-size:26px;margin:0 0 2px;}
+  .home .home-top .sub{margin:0 0 6px;}
+  .home .pf-bar{justify-content:center;}
+  .home .bonus-row{margin:0;text-align:center;}
+  .home-radial{position:relative;width:min(96vw,430px);flex:1 1 auto;min-height:140px;
+    margin:0 auto;pointer-events:none;}
+
+  .home-mini{position:relative;margin-top:auto;padding:8px 14px 16px;display:flex;
+    justify-content:center;gap:8px;flex-wrap:wrap;z-index:3;pointer-events:auto;}
   #ui.hidden, .hidden{display:none!important;}
   h1.title{font-size:30px;letter-spacing:3px;
     background:linear-gradient(90deg,var(--accent),#7cc97f,var(--accent));
@@ -143,11 +165,237 @@
   /* 暗角：温暖纸张边缘感 */
   #vignette{position:fixed;inset:0;pointer-events:none;z-index:8;background:radial-gradient(ellipse at center,transparent 60%,rgba(120,100,60,.22) 100%);}
   @keyframes winBurst{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(0)}}
+
+  /* ============ v3：养成 / 章节 / 卡牌 / 成就 / 技能 ============ */
+  /* 宽面板（可滚动，用于章节选择/图鉴/成就） */
+  .panel.wide{width:min(94vw,620px);max-height:88vh;overflow-y:auto;overflow-x:hidden;text-align:left;padding:20px 22px;}
+  .panel.wide::-webkit-scrollbar{width:8px}
+  .panel.wide::-webkit-scrollbar-thumb{background:rgba(63,174,90,.35);border-radius:4px}
+  .panel.wide h1.title{text-align:center;}
+  /* 档案栏（主菜单顶部） */
+  .pf-bar{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;
+    background:linear-gradient(90deg,rgba(63,174,90,.12),rgba(212,136,6,.1),rgba(63,174,90,.12));
+    border:1px solid rgba(63,174,90,.3);border-radius:14px;padding:8px 16px;margin:10px 0 4px;font-size:14px;}
+  .pf-bar .xp-wrap{display:flex;align-items:center;gap:6px;}
+  .pf-bar .xpbar{width:110px;height:9px;background:rgba(90,80,50,.15);border-radius:6px;overflow:hidden;}
+  .pf-bar .xpbar i{display:block;height:100%;background:linear-gradient(90deg,#7cc97f,#3fae5a);transition:width .4s;}
+  .pf-bar b.coins{color:#c07800;}
+  /* 主菜单小功能按钮行 */
+  .mini-row{display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap;}
+  .mini-btn{background:rgba(63,174,90,.1);border:1px solid rgba(63,174,90,.35);color:#2e5c40;
+    border-radius:18px;padding:7px 14px;font-size:13px;cursor:pointer;transition:.2s;}
+  .mini-btn:hover{background:rgba(63,174,90,.25);transform:translateY(-2px);box-shadow:0 4px 14px rgba(63,174,90,.3);}
+  /* 章节分组与小节网格 */
+  .ch-group{margin:14px 0 4px;}
+  .ch-head{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700;color:var(--accent2);
+    padding:6px 4px;border-bottom:2px dashed rgba(63,174,90,.3);margin-bottom:10px;}
+  .ch-head .ch-tag{background:linear-gradient(135deg,#3fae5a,#2e8b57);color:#fff;font-size:12px;
+    border-radius:8px;padding:3px 10px;letter-spacing:1px;box-shadow:0 2px 8px rgba(46,139,87,.35);}
+  .ch-head .ch-info{margin-left:auto;font-size:12px;font-weight:400;opacity:.7;}
+  .sec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;}
+  .sec-btn{position:relative;background:rgba(63,174,90,.08);border:1px solid rgba(63,174,90,.3);
+    border-radius:11px;padding:9px 8px;cursor:pointer;transition:.18s;text-align:center;overflow:hidden;}
+  .sec-btn:hover{background:rgba(63,174,90,.2);transform:translateY(-2px);box-shadow:0 6px 16px rgba(63,174,90,.25);}
+  .sec-btn .nm{font-size:13px;font-weight:600;line-height:1.35;display:block;}
+  .sec-btn .meta{font-size:10px;opacity:.6;margin-top:3px;display:block;}
+  .sec-btn .stars{font-size:12px;letter-spacing:1px;margin-top:2px;display:block;color:#d48806;text-shadow:0 0 6px rgba(255,180,0,.4);}
+  .sec-btn .stars .off{opacity:.25;filter:grayscale(1);}
+  .sec-btn.done{border-color:rgba(212,136,6,.5);background:rgba(212,136,6,.07);}
+  .sec-btn.locked{opacity:.5;filter:grayscale(.6);cursor:not-allowed;}
+  .sec-btn.locked:hover{transform:none;box-shadow:none;background:rgba(63,174,90,.08);}
+  /* 章节云朵遮罩：锁定章节被白云遮住，解锁后滚入视区时云朵飘散露出内容 */
+  .sec-cloud{position:absolute;z-index:5;pointer-events:none;
+    left:-18%;right:-18%;top:-14%;bottom:-14%;
+    background:
+      radial-gradient(ellipse 42% 56% at 26% 82%, rgba(255,255,255,.95) 0 60%, rgba(255,255,255,0) 72%),
+      radial-gradient(ellipse 46% 62% at 52% 68%, rgba(255,255,255,.95) 0 60%, rgba(255,255,255,0) 72%),
+      radial-gradient(ellipse 40% 54% at 76% 82%, rgba(255,255,255,.95) 0 60%, rgba(255,255,255,0) 72%),
+      radial-gradient(ellipse 34% 46% at 66% 52%, rgba(255,255,255,.9) 0 58%, rgba(255,255,255,0) 70%),
+      radial-gradient(ellipse 30% 42% at 36% 52%, rgba(255,255,255,.9) 0 58%, rgba(255,255,255,0) 70%);
+    filter:blur(1.2px);opacity:.86;transition:opacity .35s;}
+  .sec-cloud.drift{animation:cloudDrift .9s cubic-bezier(.34,1.2,.4,1) forwards;}
+  @keyframes cloudDrift{
+    0%{opacity:.86;transform:translate(0,0) scale(1);}
+    100%{opacity:0;transform:translate(8px,-30px) scale(1.28);}}
+  /* 题型徽章 + 引例框 + 解析框 */
+  .q-badge{display:inline-block;font-size:12px;font-weight:700;letter-spacing:1px;color:#fff;
+    padding:3px 12px;border-radius:12px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.15);
+    animation:badgeIn .35s cubic-bezier(.34,1.56,.64,1);}
+  @keyframes badgeIn{from{transform:scale(0) rotate(-8deg)}to{transform:scale(1) rotate(0)}}
+  .b-概念{background:linear-gradient(135deg,#4a90d9,#3452d9);}
+  .b-母题{background:linear-gradient(135deg,#3fae5a,#2e8b57);}
+  .b-易错{background:linear-gradient(135deg,#f87171,#ef4444);}
+  .b-引例{background:linear-gradient(135deg,#ffb347,#ff8c00);}
+  .b-证明{background:linear-gradient(135deg,#8e7cc3,#6a5acd);}
+  .lead-box{background:linear-gradient(135deg,rgba(255,179,71,.12),rgba(255,140,0,.06));
+    border:1px solid rgba(212,136,6,.4);border-left:4px solid #d48806;border-radius:12px;
+    padding:12px 14px;font-size:14px;line-height:1.8;text-align:left;margin:4px 0 12px;
+    box-shadow:0 2px 12px rgba(212,136,6,.12);}
+  .lead-box .lb-tag{display:inline-block;font-size:11px;font-weight:700;color:#fff;background:#d48806;
+    border-radius:8px;padding:1px 9px;margin-bottom:6px;letter-spacing:1px;}
+  .why-box{background:linear-gradient(135deg,rgba(63,174,90,.1),rgba(46,139,87,.05));
+    border:1px solid rgba(46,139,87,.35);border-left:4px solid #3fae5a;border-radius:12px;
+    padding:12px 14px;font-size:14px;line-height:1.8;text-align:left;margin-top:12px;
+    animation:whyIn .4s cubic-bezier(.34,1.56,.64,1);box-shadow:0 2px 12px rgba(46,139,87,.12);}
+  @keyframes whyIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  .why-box .wb-tag{display:inline-block;font-size:11px;font-weight:700;color:#fff;background:#2e8b57;
+    border-radius:8px;padding:1px 9px;margin-bottom:6px;letter-spacing:1px;}
+  .q-progress{position:absolute;top:10px;left:14px;font-size:12px;opacity:.8;
+    text-shadow:0 1px 3px rgba(255,253,246,.8);}
+  /* 技能栏 + 能量条（战斗中） */
+  .skill-bar{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:10px;pointer-events:auto;z-index:6;}
+  .skill-btn{width:64px;height:64px;border-radius:14px;border:2px solid rgba(63,174,90,.5);cursor:pointer;
+    background:linear-gradient(180deg,rgba(253,250,241,.95),rgba(244,236,214,.9));position:relative;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;transition:.15s;overflow:hidden;}
+  .skill-btn .ic{font-size:22px;line-height:1;}
+  .skill-btn .sn{font-size:10px;font-weight:700;color:#2e5c40;margin-top:2px;}
+  .skill-btn .sc{font-size:9px;color:#c07800;font-weight:700;}
+  .skill-btn:hover{transform:translateY(-3px);box-shadow:0 6px 18px rgba(63,174,90,.4);border-color:var(--accent);}
+  .skill-btn.ready{animation:skillGlow 1.6s ease-in-out infinite;border-color:#ffd27a;}
+  @keyframes skillGlow{0%,100%{box-shadow:0 0 6px rgba(255,210,122,.35)}50%{box-shadow:0 0 18px rgba(255,180,0,.75)}}
+  .skill-btn.dis{opacity:.45;filter:grayscale(.7);cursor:not-allowed;}
+  .skill-btn.dis:hover{transform:none;box-shadow:none;}
+  .skill-btn .key{position:absolute;top:2px;right:4px;font-size:9px;color:#fff;background:rgba(46,139,87,.7);
+    border-radius:4px;padding:0 4px;font-weight:700;}
+  .energy-chip{position:absolute;top:40px;right:14px;width:150px;pointer-events:none;text-align:right;}
+  .energy-chip .bar{width:150px;height:12px;}
+  .energy-chip .bar>i{background:linear-gradient(90deg,#7cc97f,#3fae5a,#ffd27a);box-shadow:0 0 10px rgba(124,201,127,.6);}
+  .energy-chip .lbl{font-size:11px;font-weight:700;color:#2e8b57;margin-bottom:3px;
+    text-shadow:0 1px 3px rgba(255,253,246,.9);}
+  .skill-tip{position:absolute;bottom:86px;left:50%;transform:translateX(-50%);font-size:12px;
+    background:rgba(253,250,241,.92);border:1px solid rgba(63,174,90,.4);border-radius:10px;
+    padding:6px 14px;pointer-events:none;text-shadow:none;white-space:nowrap;
+    box-shadow:0 4px 14px rgba(90,80,50,.25);animation:tipPulse 1.5s ease-in-out infinite;}
+  /* Toast 通知 */
+  .toast{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:2000;
+    background:rgba(253,250,241,.96);border:1px solid rgba(63,174,90,.5);border-radius:14px;
+    padding:10px 22px;font-size:14px;font-weight:600;color:var(--ink);
+    box-shadow:0 8px 30px rgba(90,80,50,.3),0 0 20px rgba(63,174,90,.2);
+    animation:toastIn .35s cubic-bezier(.34,1.56,.64,1);pointer-events:none;max-width:86vw;text-align:center;}
+  .toast.out{animation:toastOut .4s ease forwards;}
+  @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-24px) scale(.85)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+  @keyframes toastOut{to{opacity:0;transform:translateX(-50%) translateY(-16px) scale(.9)}}
+  .toast.gold{border-color:rgba(212,136,6,.6);color:#8c6000;box-shadow:0 8px 30px rgba(90,80,50,.3),0 0 24px rgba(255,180,0,.45);}
+  .toast.card{border-color:rgba(142,124,195,.6);box-shadow:0 8px 30px rgba(90,80,50,.3),0 0 26px rgba(142,124,195,.5);}
+  .toast.ach{border-color:rgba(212,136,6,.7);color:#8c6000;background:linear-gradient(135deg,#fff8e8,#fdf3d8);}
+  .toast.lv{border-color:rgba(255,210,122,.8);color:#c07800;background:linear-gradient(135deg,#fffdf5,#fff3d0);font-size:16px;}
+  /* 卡牌：稀有度 普通(0) / 精英(1) / 传说(2) */
+  .rar-0{--rc:#8a9a8e;} .rar-1{--rc:#4a90d9;} .rar-2{--rc:#d48806;}
+  .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-top:14px;}
+  .card-item{position:relative;border-radius:14px;padding:14px 10px 10px;text-align:center;overflow:hidden;
+    border:2px solid var(--rc);background:linear-gradient(160deg,rgba(253,250,241,.9),rgba(244,236,214,.7));
+    transition:.2s;}
+  .card-item:hover{transform:translateY(-4px) scale(1.03);box-shadow:0 10px 24px rgba(90,80,50,.25);}
+  .card-item .ce{font-size:34px;line-height:1.15;filter:drop-shadow(0 3px 6px rgba(90,80,50,.3));}
+  .card-item .cn{font-size:13px;font-weight:800;margin-top:5px;color:var(--rc);}
+  .card-item .cd{font-size:10.5px;opacity:.75;margin-top:4px;line-height:1.5;}
+  .card-item .cnt{position:absolute;top:6px;right:7px;font-size:10px;font-weight:800;color:#fff;
+    background:var(--rc);border-radius:9px;padding:1px 7px;}
+  .card-item.rar1{animation:cardShine2 2.6s ease-in-out infinite;}
+  .card-item.rar2{animation:legendGlow 2.8s ease-in-out infinite;}
+  .card-item.rar2::after{content:'';position:absolute;top:0;left:-70%;width:45%;height:100%;
+    background:linear-gradient(105deg,transparent,rgba(255,255,255,.6),transparent);
+    animation:sweep 2.2s linear infinite;}
+  @keyframes sweep{0%{left:-70%}60%{left:140%}100%{left:140%}}
+  @keyframes cardShine2{0%{box-shadow:0 0 5px rgba(74,144,217,.25)}50%{box-shadow:0 0 20px rgba(108,178,235,.85),0 0 40px rgba(74,144,217,.35)}100%{box-shadow:0 0 5px rgba(74,144,217,.25)}}
+  @keyframes legendGlow{0%,100%{box-shadow:0 0 8px rgba(212,136,6,.4)}50%{box-shadow:0 0 28px rgba(255,190,40,.95),0 0 60px rgba(255,170,0,.4)}}
+  .card-item.unk{filter:grayscale(1);opacity:.45;border-style:dashed;}
+  .card-item.unk .ce{filter:brightness(0.3);}
+  .rar-tag{font-size:10px;font-weight:800;color:#fff;background:var(--rc);border-radius:7px;
+    padding:1px 8px;display:inline-block;margin-top:6px;letter-spacing:1px;}
+  /* 抽卡 */
+  .gacha-stage{position:relative;min-height:170px;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:10px;margin:14px 0;}
+  .gacha-card{width:120px;height:168px;border-radius:14px;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:6px;color:#fff;font-weight:800;transform-style:preserve-3d;
+    animation:flipIn .7s cubic-bezier(.34,1.56,.64,1);border:3px solid rgba(255,255,255,.75);
+    box-shadow:0 12px 32px rgba(90,80,50,.35);}
+  @keyframes flipIn{from{transform:rotateY(180deg) scale(.6);opacity:0}to{transform:rotateY(0) scale(1);opacity:1}}
+  .gacha-card .ge{font-size:44px;}
+  .gacha-card.rar0r{background:linear-gradient(160deg,#9aa89e,#6d7a70);}
+  .gacha-card.rar1r{background:linear-gradient(160deg,#6cb2eb,#3452d9);
+    animation:flipIn .7s cubic-bezier(.34,1.56,.64,1),cardShine2 1.8s linear .5s infinite;}
+  .gacha-card.rar2r{background:linear-gradient(160deg,#ffd86b,#d48806);position:relative;overflow:hidden;
+    animation:flipIn .7s cubic-bezier(.34,1.56,.64,1),legendGlow 1.8s linear .5s infinite;}
+  .gacha-card.rar2r::after{content:'';position:absolute;top:0;left:-70%;width:45%;height:100%;
+    background:linear-gradient(105deg,transparent,rgba(255,255,255,.65),transparent);
+    animation:sweep 1.6s linear infinite;}
+  .dup-tag{font-size:12px;font-weight:600;opacity:.85;}
+  /* 成就 */
+  .ach-item{display:flex;gap:12px;align-items:center;background:rgba(63,174,90,.06);
+    border:1px solid rgba(63,174,90,.22);border-radius:12px;padding:10px 14px;margin-bottom:8px;}
+  .ach-item .ai{font-size:26px;width:40px;text-align:center;filter:grayscale(1);opacity:.4;}
+  .ach-item.got{border-color:rgba(212,136,6,.45);background:rgba(212,136,6,.07);}
+  .ach-item.got .ai{filter:none;opacity:1;animation:achPop .5s cubic-bezier(.34,1.56,.64,1);}
+  @keyframes achPop{0%{transform:scale(.3) rotate(-20deg)}70%{transform:scale(1.2)}100%{transform:scale(1)}}
+  .ach-item .an{font-size:14px;font-weight:700;}
+  .ach-item .ad{font-size:12px;opacity:.7;margin-top:2px;}
+  .ach-item .as{margin-left:auto;font-size:20px;}
+  /* 小节结算 */
+  .stars-big{font-size:42px;letter-spacing:6px;margin:6px 0;color:#d48806;
+    text-shadow:0 0 20px rgba(255,180,0,.55);}
+  .stars-big .off{opacity:.2;filter:grayscale(1);}
+  .stars-big .on{display:inline-block;animation:starPop .5s cubic-bezier(.34,1.56,.64,1) backwards;}
+  .stars-big .on:nth-child(2){animation-delay:.15s} .stars-big .on:nth-child(3){animation-delay:.3s}
+  @keyframes starPop{from{transform:scale(0) rotate(-40deg)}to{transform:scale(1) rotate(0)}}
+  .settle-rows{display:flex;flex-direction:column;gap:6px;margin:12px 0;font-size:14px;text-align:left;}
+  .settle-rows .row{display:flex;justify-content:space-between;background:rgba(63,174,90,.06);
+    border-radius:9px;padding:7px 14px;}
+  .settle-rows .row b{color:#c07800;}
+  .drop-card{display:inline-flex;align-items:center;gap:8px;border:2px solid var(--rc);border-radius:12px;
+    padding:8px 16px;font-weight:800;color:var(--rc);margin-top:4px;animation:badgeIn .5s cubic-bezier(.34,1.56,.64,1);}
+  /* 升级金闪 */
+  #lvFlash{position:fixed;inset:0;pointer-events:none;z-index:1500;opacity:0;
+    background:radial-gradient(circle,rgba(255,220,120,.55) 0%,rgba(255,190,60,.25) 45%,transparent 75%);
+    transition:opacity .3s;}
+  #lvFlash.active{opacity:1;animation:lvPulse .8s ease;}
+  @keyframes lvPulse{0%{transform:scale(.8)}50%{transform:scale(1.05)}100%{transform:scale(1)}}
+  /* 属性加成提示条 */
+  .bonus-chip{font-size:11px;color:#2e8b57;background:rgba(63,174,90,.1);border:1px solid rgba(63,174,90,.3);
+    border-radius:10px;padding:3px 10px;display:inline-block;margin:2px;}
+  /* ============ 累计错误：红叉容错框 ============ */
+  .xrow{display:flex;align-items:center;justify-content:center;gap:6px;margin:6px 0 4px;flex-wrap:wrap;}
+  .xrow .xl{font-size:11px;font-weight:700;color:#b4552d;letter-spacing:.5px;}
+  .xbox{width:22px;height:22px;border:2px solid rgba(180,85,45,.4);border-radius:6px;
+    background:rgba(255,255,255,.55);position:relative;flex:none;}
+  .xbox.hit{border-color:#d63b2f;background:rgba(214,59,47,.08);}
+  .xbox.hit::after{content:'✕';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:16px;font-weight:900;color:#d63b2f;text-shadow:0 0 8px rgba(214,59,47,.55);
+    animation:xStamp .35s cubic-bezier(.34,1.56,.64,1);}
+  @keyframes xStamp{0%{transform:scale(2.6) rotate(-18deg);opacity:0}
+    60%{transform:scale(.9) rotate(3deg);opacity:1}100%{transform:scale(1) rotate(0)}}
+  .xrow.danger .xl{color:#d63b2f;animation:xBlink .8s ease-in-out infinite;}
+  .xrow.danger .xbox{border-color:#d63b2f;animation:xPulse 1s ease-in-out infinite;}
+  @keyframes xPulse{0%,100%{box-shadow:0 0 0 0 rgba(214,59,47,.4)}50%{box-shadow:0 0 0 5px rgba(214,59,47,0)}}
+  @keyframes xBlink{0%,100%{opacity:1}50%{opacity:.45}}
+  /* ============ 失败结算 CG ============ */
+  .cg-mask{position:fixed;inset:0;background:radial-gradient(circle,rgba(22,8,8,.5) 0%,rgba(10,4,4,.9) 100%);
+    z-index:900;pointer-events:none;animation:cgFade 1.1s ease both;}
+  @keyframes cgFade{from{opacity:0}to{opacity:1}}
+  .cg-panel{animation:cgUp .7s cubic-bezier(.22,1,.36,1) 1.15s both;z-index:950;}
+  @keyframes cgUp{from{transform:translate(-50%,calc(-50% + 48px));opacity:0}
+    to{transform:translate(-50%,-50%);opacity:1}}
+  .cg-title{font-size:32px;color:#d63b2f;letter-spacing:10px;margin:2px 0 4px;
+    text-shadow:0 0 22px rgba(214,59,47,.6);}
+  .cg-title span{display:inline-block;animation:cgDrop .55s cubic-bezier(.34,1.56,.64,1) both;}
+  .cg-title span:nth-child(2){animation-delay:.12s}
+  .cg-title span:nth-child(3){animation-delay:.24s}
+  .cg-title span:nth-child(4){animation-delay:.36s}
+  @keyframes cgDrop{from{transform:translateY(-64px) scale(1.7);opacity:0}
+    to{transform:translateY(0) scale(1);opacity:1}}
+  .cg-x{position:absolute;top:-30px;right:-2px;font-size:72px;font-weight:900;color:#d63b2f;line-height:1;
+    text-shadow:0 0 26px rgba(214,59,47,.65);transform:rotate(14deg);
+    animation:cgStamp .45s cubic-bezier(.34,1.56,.64,1) .55s both;z-index:2;}
+  @keyframes cgStamp{from{transform:rotate(-18deg) scale(3.4);opacity:0}
+    70%{transform:rotate(16deg) scale(.92);opacity:1}to{transform:rotate(14deg) scale(1)}}
+  .cg-score b{font-size:44px;color:#c07800;text-shadow:0 0 18px rgba(212,136,6,.45);}
+  .cg-score small{display:block;font-size:12px;color:#8c8c7e;margin-top:-4px;}
 </style>
 </head>
 <body>
 <div id="bgParticles"></div>
 <div id="damageFlash"></div>
+<div id="lvFlash"></div>
 <div id="vignette"></div>
 <div id="app">
   <canvas id="game"></canvas>
@@ -157,6 +405,13 @@
 <script type="importmap">
 {"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}
 </script>
+
+<script src="mathdata.js"></script>
+<script src="politicsdata.js"></script>
+<script src="physicsdata.js"></script>
+<script src="schoolmath.js"></script>
+<script src="schoolphysics.js"></script>
+<script src="schoolpolitics.js"></script>
 
 <script type="module">
 import * as THREE from 'three';
@@ -3418,14 +3673,64 @@ const CONFIG = {
   "初中":{baseHP:12,baseATK:1, hpGrow:2, atkGrow:0, color:0x6cb2eb},
   "高中":{baseHP:16,baseATK:2, hpGrow:3, atkGrow:1, color:0xffa24d},
   "四级":{baseHP:24,baseATK:2, hpGrow:4, atkGrow:1, color:0xff5c7a},
-  "六级":{baseHP:32,baseATK:3, hpGrow:5, atkGrow:2, color:0x3452d9}
+  "六级":{baseHP:32,baseATK:3, hpGrow:5, atkGrow:2, color:0x3452d9},
+  "高等数学":{baseHP:14,baseATK:1,hpGrow:3, atkGrow:1, color:0x5b9657},
+  "线性代数":{baseHP:16,baseATK:2,hpGrow:3, atkGrow:1, color:0x4a90d9},
+  "概率论与数理统计":{baseHP:18,baseATK:2,hpGrow:4, atkGrow:1, color:0x8e7cc3},
+  "马克思主义基本原理":{baseHP:14,baseATK:1,hpGrow:3, atkGrow:1, color:0xb0544c},
+  "习近平新时代中国特色社会主义思想概论":{baseHP:18,baseATK:2,hpGrow:4, atkGrow:1, color:0xd48806},
+  "毛泽东思想和中国特色社会主义理论体系概论":{baseHP:16,baseATK:2,hpGrow:3, atkGrow:1, color:0x4a90d9},
+  "中国近现代史纲要":{baseHP:20,baseATK:2,hpGrow:4, atkGrow:1, color:0x8e7cc3},
+  "思想道德与法治":{baseHP:14,baseATK:1,hpGrow:3, atkGrow:1, color:0x2e9e57},
+  "力学":{baseHP:16,baseATK:2,hpGrow:3, atkGrow:1, color:0x2e9e57},
+  "热学":{baseHP:18,baseATK:2,hpGrow:4, atkGrow:1, color:0xd48806},
+  "电磁学":{baseHP:22,baseATK:2,hpGrow:4, atkGrow:1, color:0x4a90d9},
+  "波动光学":{baseHP:20,baseATK:2,hpGrow:4, atkGrow:1, color:0xff5c7a},
+  "近代物理":{baseHP:26,baseATK:3,hpGrow:5, atkGrow:2, color:0x8e7cc3},
+  "实验与前沿":{baseHP:24,baseATK:3,hpGrow:5, atkGrow:1, color:0x5b9657}
 };
+// 怪物配色：大学/英语用科目或等级键；小初高用学段键回退（level 为册名，不在 CONFIG 中）
+function levelColor(){
+  const c = CONFIG[level] || CONFIG[schoolStage] || CONFIG['小学'];
+  return c ? c.color : 0x4db6ac;
+}
+// 题库分流：数学与政治共用"科目→章节→答题→战斗"流程
+// 小初高题库（学段→册→节）平铺为 {册名:[节]}，与大学题库合并检索，key 互不冲突
+const _schoolFlatCache = {};
+function schoolObj(){
+  return gameType==='politics' ? (window.SCHOOLPOLITICS||{})
+       : gameType==='physics' ? (window.SCHOOLPHYSICS||{})
+       : (window.SCHOOLMATH||{});
+}
+function schoolFlat(){
+  if(_schoolFlatCache[gameType]) return _schoolFlatCache[gameType];
+  const sb = schoolObj(), out = {};
+  for(const stage of Object.keys(sb)) for(const b of sb[stage]||[]) if(b && b.name) out[b.name] = b.secs || [];
+  _schoolFlatCache[gameType] = out;
+  return out;
+}
+function schoolStageOf(book){
+  if(!book) return null;
+  const sb = schoolObj();
+  for(const stage of Object.keys(sb)) if((sb[stage]||[]).some(b=>b.name===book)) return stage;
+  return null;
+}
+function schoolSecCount(obj){
+  let n=0;
+  for(const stage of Object.keys(obj||{})) for(const b of obj[stage]||[]) n += (b.secs||[]).length;
+  return n;
+}
+function QBank(){
+  const uni = gameType==='politics' ? POLITICS : gameType==='physics' ? PHYSICS : MATH;
+  return Object.assign({}, uni, schoolFlat());
+}
+function modeIcon(){ return gameType==='politics' ? '📕' : gameType==='physics' ? '⚛️' : '🧮'; }
 const HERO_MAX_HP = 20;           // 战士初始最大血量
 const HEAL_RATIO = 0.3;           // 每局胜利回血比例（至少4点）
 const ATTACK_INTERVAL = 0.55;     // 战士基础攻击间隔(秒)，随武器等级降低
 const ATK_SPEED_FACTOR = 0.8;     // 每升一级攻速提升倍率(攻速乘1/0.8=1.25x)
-const MAX_ATK_MULT = 2048;        // 攻速倍率封顶：达到后升级只加攻击力、不加攻速
-const ATK_CAP_LV = Math.ceil(Math.log(MAX_ATK_MULT)/Math.log(1/ATK_SPEED_FACTOR)); // 攻速达到封顶的武器等级(≈35)
+const MAX_ATK_MULT = 120;          // 攻速倍率封顶：攻击达32倍后攻速仍继续提升，直到120倍(≈22级)
+const ATK_CAP_LV = Math.ceil(Math.log(MAX_ATK_MULT)/Math.log(1/ATK_SPEED_FACTOR)); // 攻速达到封顶的武器等级(≈22)
 const BOSS_KILL_HITS = 50;        // BOSS被攻击50次立即秒杀（防止后期血量膨胀拖长战斗）
 const MELEE_INTERVAL = 1.2;       // BOSS近战攻击间隔(秒)
 const MELEE_WINDUP = 1.1;         // BOSS近战起手时间(秒)：接触后先抬爪，给战士反击窗口
@@ -3445,100 +3750,427 @@ const DEFAULT_STAGE1_TIME = 8;    // 无记录时（旧存档）的默认基准�
 
 /* ============ 全局状态 ============ */
 let state = "menu";               // menu|question|upgrade|battle
-let level = null;                 // 当前等级
-let P = { weapon:1, maxHp:HERO_MAX_HP, hp:HERO_MAX_HP, score:0, round:0, correct:0, wrong:0, stage1Time:null };
+let gameType = 'english';         // 主题分流：english(词汇勇者)|math(数学勇者)|politics(政治勇者)
+let level = null;                 // english:等级(小学...) | math:科目(高等数学/线性代数/概率统计)
+let P = { weapon:1, maxHp:HERO_MAX_HP, hp:HERO_MAX_HP, score:0, round:0, step:0, correct:0, wrong:0, stage1Time:null };
 let enemies = [];                 // 战场上的怪物数组
-let usedWords = new Set();
-let curWord = null;
+let usedWords = new Set();        // english：本局已考过的词（避免重复）
+let usedAreas = new Set();        // math：本局已通关的小节
+let curWord = null;               // english：当前考的单个词 [en,zh]（词题与战斗各阶段共用）
 // 战斗调度状态
 let spawnQueue = [];              // 待进场小怪计划 {t:毫秒, hp, atk, lane, row}
 let battleStart = 0;              // 本局战斗开始时间戳（用于记录首关用时）
 let curStageBudget = 0;           // 本关小怪阶段时长预算(秒)=首关基准
+let curDiffMult = 1;              // 本场动态难度倍率（连败↑/胜局↓，全局存档 PF.pressure）
 let bossDuelNoted = false;        // 是否已提示"BOSS决战"
-let heroSwingT = -9999;           // 英雄挥剑动画起始时间戳
+let heroCastT = -9999;            // 英雄「双手念诀施法」动画起始时间戳
 let chipAcc = 0;                  // 小怪围攻消耗的累积器（按秒累积，整数扣除）
 let killCombo = 0;                // 本局连续击杀数（用于连击分数倍率）
 
-/* ============ 本地存档系统 ============ */
-const SAVE_KEY = 'vocabHero_saves';
-function loadSaves(){ try{ return JSON.parse(localStorage.getItem(SAVE_KEY))||[]; }catch(e){ return []; } }
-function persistSaves(list){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(list)); }catch(e){} }
-// 自动存档：每个等级一个存档槽（含所有进度），续玩时精确恢复
-// 关数回退保护：新开游戏若关数比该等级存档低，则不覆盖（存档永远保留最高进度）
-function autoSave(){
-  if(state==='menu' && !level) return;                 // 尚未开始
-  const list = loadSaves();
-  const src = 'Lv|' + level;
-  const old = list.find(x=>x.src===src);
-  if(old && typeof old.round==='number' && P.round < old.round) return;   // 进度低于存档 → 保留存档
-  let s = old;
-  if(!s){
-    s = { src, level, ts:Date.now() };
-    list.push(s);
+/* ============ 全局玩家档案（跨局养成：等级/金币/卡牌/成就/星级） ============ */
+const PROFILE_KEY = 'mathHero_profile_v1';
+const RAR_NAMES = ['普通','精英','传说'];
+const RAR_DUPGOLD = [20, 50, 150];
+const RAR_WEIGHTS = [[0,.70],[1,.25],[2,.05]];   // 抽卡稀有度权重（普通70% / 精英25% / 传说5%）
+// 卡牌按"大章"分类：每大章固定 8 张，战斗中只掉落当前大章对应卡池
+const SUB_ORDER = ['高数','线代','概率',
+  '小学','初中','高中','四级','六级',
+  '马克思主义基本原理','习近平新时代中国特色社会主义思想概论','毛泽东思想和中国特色社会主义理论体系概论','中国近现代史纲要','思想道德与法治',
+  '力学','热学','电磁学','波动光学','近代物理','实验与前沿'];
+const SUBMAP = { '高等数学':'高数', '线性代数':'线代', '概率论与数理统计':'概率' };
+const CARD_SUB_SHORT = { '马克思主义基本原理':'马原','习近平新时代中国特色社会主义思想概论':'习概','毛泽东思想和中国特色社会主义理论体系概论':'毛概','中国近现代史纲要':'纲要','思想道德与法治':'思修' };
+function currentCardSub(){
+  if(gameType==='english') return level;            // 英语：小学/初中/高中/四级/六级
+  const st = schoolStageOf(level);                  // 小初高：按学段掉落对应卡池
+  if(st) return st;
+  return SUBMAP[level] || level;                    // 大学数学映射短名；政治/物理直接用科目名
+}
+function cardPoolFor(sub){ return CARDS.filter(c=>c.sub===(sub||currentCardSub())); }
+// 卡牌图鉴（按学科）：拥有即获得永久被动加成
+const CARDS = [
+  /* ---- 数学 ---- */
+  {id:'gs_lim',  sub:'高数', emoji:'lim', name:'极限行者',   rar:0, b:{atk:.02},       desc:'攻击 +2%'},
+  {id:'gs_ed',   sub:'高数', emoji:'ε-δ', name:'ε-δ 精算师',rar:1, b:{atk:.05},       desc:'攻击 +5%'},
+  {id:'gs_int',  sub:'高数', emoji:'∫',   name:'积分骑士',   rar:0, b:{hp:3},         desc:'生命 +3'},
+  {id:'gs_exp',  sub:'高数', emoji:'eˣ',  name:'指数射手',   rar:1, b:{crit:.03},     desc:'暴击率 +3%'},
+  {id:'gs_pi',   sub:'高数', emoji:'π',   name:'割圆大师',   rar:1, b:{coin:.10},     desc:'金币 +10%'},
+  {id:'gs_tay',  sub:'高数', emoji:'Σ',   name:'泰勒展开者', rar:2, b:{atk:.08},       desc:'攻击 +8%'},
+  {id:'gs_lag',  sub:'高数', emoji:'R',   name:'中值领主',   rar:0, b:{hp:2},         desc:'生命 +2'},
+  {id:'gs_lh',   sub:'高数', emoji:'0/0', name:'洛必达之刃', rar:2, b:{atk:.12},       desc:'攻击 +12%'},
+  {id:'xd_det',  sub:'线代', emoji:'det', name:'行列式卫士', rar:0, b:{hp:3},         desc:'生命 +3'},
+  {id:'xd_hom',  sub:'线代', emoji:'Ax=0',name:'齐次刺客',   rar:0, b:{atk:.02},       desc:'攻击 +2%'},
+  {id:'xd_eig',  sub:'线代', emoji:'λ',   name:'特征猎手',   rar:1, b:{atk:.05},       desc:'攻击 +5%'},
+  {id:'xd_eye',  sub:'线代', emoji:'E',   name:'单位矩阵',   rar:0, b:{hp:2},         desc:'生命 +2'},
+  {id:'xd_rank', sub:'线代', emoji:'秩',  name:'秩控师',     rar:1, b:{crit:.03},     desc:'暴击率 +3%'},
+  {id:'xd_T',    sub:'线代', emoji:'Aᵀ',  name:'转置舞者',   rar:0, b:{coin:.05},     desc:'金币 +5%'},
+  {id:'xd_orth', sub:'线代', emoji:'⊥',   name:'正交光刃',   rar:2, b:{atk:.08},       desc:'攻击 +8%'},
+  {id:'xd_diag', sub:'线代', emoji:'Λ',   name:'对角化大师', rar:2, b:{atk:.12},       desc:'攻击 +12%'},
+  {id:'gl_omg',  sub:'概率', emoji:'Ω',   name:'样本空间',   rar:0, b:{hp:3},         desc:'生命 +3'},
+  {id:'gl_cond', sub:'概率', emoji:'P(A|B)',name:'条件预言者',rar:0, b:{atk:.02},     desc:'攻击 +2%'},
+  {id:'gl_exp',  sub:'概率', emoji:'E(X)', name:'期望计算者', rar:1, b:{coin:.10},     desc:'金币 +10%'},
+  {id:'gl_var',  sub:'概率', emoji:'σ²',  name:'方差掌控者', rar:1, b:{crit:.03},     desc:'暴击率 +3%'},
+  {id:'gl_bay',  sub:'概率', emoji:'∤',   name:'贝叶斯先知', rar:2, b:{atk:.08},       desc:'攻击 +8%'},
+  {id:'gl_clt',  sub:'概率', emoji:'N(0,1)',name:'中心极限', rar:2, b:{hp:12},       desc:'生命 +12'},
+  {id:'gl_lln',  sub:'概率', emoji:'→p',  name:'大数定律',   rar:1, b:{hp:6},         desc:'生命 +6'},
+  {id:'gl_norm', sub:'概率', emoji:'𝒩',   name:'正态之魂',   rar:2, b:{atk:.12},       desc:'攻击 +12%'},
+  /* ---- 英语：小学 ---- */
+  {id:'e1_a', sub:'小学', emoji:'🍎', name:'单词小勇士', rar:0, b:{atk:.02}, desc:'攻击 +2%'},
+  {id:'e1_b', sub:'小学', emoji:'🧸', name:'字母小卫士', rar:0, b:{hp:3},   desc:'生命 +3'},
+  {id:'e1_c', sub:'小学', emoji:'✏️', name:'拼写小匠',   rar:0, b:{coin:.05}, desc:'金币 +5%'},
+  {id:'e1_d', sub:'小学', emoji:'🖍️', name:'造句小画家', rar:0, b:{hp:2},   desc:'生命 +2'},
+  {id:'e1_e', sub:'小学', emoji:'📖', name:'课文朗读者', rar:1, b:{atk:.05}, desc:'攻击 +5%'},
+  {id:'e1_f', sub:'小学', emoji:'🗣️', name:'发音小明星', rar:1, b:{crit:.03}, desc:'暴击率 +3%'},
+  {id:'e1_g', sub:'小学', emoji:'🎵', name:'儿歌歌手',   rar:1, b:{coin:.10}, desc:'金币 +10%'},
+  {id:'e1_h', sub:'小学', emoji:'👑', name:'词汇小国王', rar:2, b:{atk:.10}, desc:'攻击 +10%'},
+  /* ---- 英语：初中 ---- */
+  {id:'e2_a', sub:'初中', emoji:'⚽', name:'操场少年',   rar:0, b:{atk:.02}, desc:'攻击 +2%'},
+  {id:'e2_b', sub:'初中', emoji:'📚', name:'课代表',     rar:0, b:{hp:3},   desc:'生命 +3'},
+  {id:'e2_c', sub:'初中', emoji:'🏀', name:'篮球小子',   rar:0, b:{coin:.05}, desc:'金币 +5%'},
+  {id:'e2_d', sub:'初中', emoji:'🎒', name:'书包旅人',   rar:0, b:{hp:2},   desc:'生命 +2'},
+  {id:'e2_e', sub:'初中', emoji:'🔤', name:'词根侦探',   rar:1, b:{atk:.05}, desc:'攻击 +5%'},
+  {id:'e2_f', sub:'初中', emoji:'🧩', name:'完形巧匠',   rar:1, b:{crit:.03}, desc:'暴击率 +3%'},
+  {id:'e2_g', sub:'初中', emoji:'✍️', name:'作文高手',   rar:1, b:{coin:.10}, desc:'金币 +10%'},
+  {id:'e2_h', sub:'初中', emoji:'🦸', name:'语法超人',   rar:2, b:{atk:.10}, desc:'攻击 +10%'},
+  /* ---- 英语：高中 ---- */
+  {id:'e3_a', sub:'高中', emoji:'📝', name:'备考达人',     rar:0, b:{atk:.02}, desc:'攻击 +2%'},
+  {id:'e3_b', sub:'高中', emoji:'🕐', name:'时间管理师',   rar:0, b:{hp:3},   desc:'生命 +3'},
+  {id:'e3_c', sub:'高中', emoji:'🗂️', name:'错题收藏家',   rar:0, b:{coin:.05}, desc:'金币 +5%'},
+  {id:'e3_d', sub:'高中', emoji:'🧮', name:'理科英语侠',   rar:0, b:{hp:2},   desc:'生命 +2'},
+  {id:'e3_e', sub:'高中', emoji:'📈', name:'阅读理解者',   rar:1, b:{atk:.05}, desc:'攻击 +5%'},
+  {id:'e3_f', sub:'高中', emoji:'🎯', name:'听力狙击手',   rar:1, b:{crit:.03}, desc:'暴击率 +3%'},
+  {id:'e3_g', sub:'高中', emoji:'🏆', name:'作文冠军',     rar:1, b:{coin:.10}, desc:'金币 +10%'},
+  {id:'e3_h', sub:'高中', emoji:'🚀', name:'高考战神',     rar:2, b:{atk:.12}, desc:'攻击 +12%'},
+  /* ---- 英语：四级 ---- */
+  {id:'e4_a', sub:'四级', emoji:'📒', name:'词汇本持有者', rar:0, b:{atk:.02}, desc:'攻击 +2%'},
+  {id:'e4_b', sub:'四级', emoji:'🍜', name:'自习室常客',   rar:0, b:{hp:3},   desc:'生命 +3'},
+  {id:'e4_c', sub:'四级', emoji:'☕', name:'咖啡续航师',   rar:0, b:{coin:.05}, desc:'金币 +5%'},
+  {id:'e4_d', sub:'四级', emoji:'📱', name:'刷题机',       rar:0, b:{hp:2},   desc:'生命 +2'},
+  {id:'e4_e', sub:'四级', emoji:'🧠', name:'高频词猎手',   rar:1, b:{atk:.05}, desc:'攻击 +5%'},
+  {id:'e4_f', sub:'四级', emoji:'🎧', name:'听力狂人',     rar:1, b:{crit:.03}, desc:'暴击率 +3%'},
+  {id:'e4_g', sub:'四级', emoji:'🖊️', name:'翻译快手',     rar:1, b:{coin:.10}, desc:'金币 +10%'},
+  {id:'e4_h', sub:'四级', emoji:'🎓', name:'四级通关者',   rar:2, b:{atk:.12}, desc:'攻击 +12%'},
+  /* ---- 英语：六级 ---- */
+  {id:'e5_a', sub:'六级', emoji:'🌍', name:'全球视野者',   rar:0, b:{atk:.02}, desc:'攻击 +2%'},
+  {id:'e5_b', sub:'六级', emoji:'🏛️', name:'学术英语人',   rar:0, b:{hp:3},   desc:'生命 +3'},
+  {id:'e5_c', sub:'六级', emoji:'🗞️', name:'外刊读者',     rar:0, b:{coin:.05}, desc:'金币 +5%'},
+  {id:'e5_d', sub:'六级', emoji:'🧭', name:'精读导航员',   rar:0, b:{hp:2},   desc:'生命 +2'},
+  {id:'e5_e', sub:'六级', emoji:'🕵️', name:'生词猎犬',     rar:1, b:{atk:.05}, desc:'攻击 +5%'},
+  {id:'e5_f', sub:'六级', emoji:'💬', name:'口语辩手',     rar:1, b:{crit:.03}, desc:'暴击率 +3%'},
+  {id:'e5_g', sub:'六级', emoji:'📊', name:'图表分析员',   rar:1, b:{coin:.10}, desc:'金币 +10%'},
+  {id:'e5_h', sub:'六级', emoji:'🦅', name:'六级王者',     rar:2, b:{atk:.12}, desc:'攻击 +12%'},
+  /* ---- 政治：马克思主义基本原理 ---- */
+  {id:'pl1_a', sub:'马克思主义基本原理', emoji:'🧭', name:'唯物主义者',     rar:0, b:{atk:.02}, desc:'攻击 +2%'},
+  {id:'pl1_b', sub:'马克思主义基本原理', emoji:'🧬', name:'辩证法学徒',     rar:0, b:{hp:3},   desc:'生命 +3'},
+  {id:'pl1_c', sub:'马克思主义基本原理', emoji:'💎', name:'价值探员',       rar:0, b:{coin:.05}, desc:'金币 +5%'},
+  {id:'pl1_d', sub:'马克思主义基本原理', emoji:'🌾', name:'实践主义者',     rar:0, b:{hp:2},   desc:'生命 +2'},
+  {id:'pl1_e', sub:'马克思主义基本原理', emoji:'🔭', name:'唯物史观者',     rar:1, b:{atk:.05}, desc:'攻击 +5%'},
+  {id:'pl1_f', sub:'马克思主义基本原理', emoji:'⚒️', name:'剩余价值猎手',   rar:1, b:{crit:.03}, desc:'暴击率 +3%'},
+  {id:'pl1_g', sub:'马克思主义基本原理', emoji:'🚩', name:'科学社会主义者', rar:1, b:{coin:.10}, desc:'金币 +10%'},
+  {id:'pl1_h', sub:'马克思主义基本原理', emoji:'🌟', name:'马克思主义灯塔', rar:2, b:{atk:.12}, desc:'攻击 +12%'},
+  /* ---- 政治：习近平新时代中国特色社会主义思想概论 ---- */
+  {id:'pl2_a', sub:'习近平新时代中国特色社会主义思想概论', emoji:'🏔️', name:'时代新人',     rar:0, b:{atk:.02}, desc:'攻击 +2%'},
+  {id:'pl2_b', sub:'习近平新时代中国特色社会主义思想概论', emoji:'🌱', name:'新发展学徒',   rar:0, b:{hp:3},   desc:'生命 +3'},
+  {id:'pl2_c', sub:'习近平新时代中国特色社会主义思想概论', emoji:'🛣️', name:'复兴使者',     rar:0, b:{coin:.05}, desc:'金币 +5%'},
+  {id:'pl2_d', sub:'习近平新时代中国特色社会主义思想概论', emoji:'🇨🇳', name:'初心守望者',   rar:0, b:{hp:2},   desc:'生命 +2'},
+  {id:'pl2_e', sub:'习近平新时代中国特色社会主义思想概论', emoji:'🏗️', name:'现代化工匠',   rar:1, b:{atk:.05}, desc:'攻击 +5%'},
+  {id:'pl2_f', sub:'习近平新时代中国特色社会主义思想概论', emoji:'🌏', name:'命运共同体',   rar:1, b:{crit:.03}, desc:'暴击率 +3%'},
+  {id:'pl2_g', sub:'习近平新时代中国特色社会主义思想概论', emoji:'🚀', name:'强国建设者',   rar:1, b:{coin:.10}, desc:'金币 +10%'},
+  {id:'pl2_h', sub:'习近平新时代中国特色社会主义思想概论', emoji:'☀️', name:'思想旗帜',     rar:2, b:{atk:.12}, desc:'攻击 +12%'},
+  /* ---- 政治：毛泽东思想和中国特色社会主义理论体系概论 ---- */
+  {id:'pl3_a', sub:'毛泽东思想和中国特色社会主义理论体系概论', emoji:'🌾', name:'实事求是者',   rar:0, b:{atk:.02}, desc:'攻击 +2%'},
+  {id:'pl3_b', sub:'毛泽东思想和中国特色社会主义理论体系概论', emoji:'🏔️', name:'长征精神',     rar:0, b:{hp:3},   desc:'生命 +3'},
+  {id:'pl3_c', sub:'毛泽东思想和中国特色社会主义理论体系概论', emoji:'🚂', name:'工业化先锋',   rar:0, b:{coin:.05}, desc:'金币 +5%'},
+  {id:'pl3_d', sub:'毛泽东思想和中国特色社会主义理论体系概论', emoji:'📜', name:'群众路线',     rar:0, b:{hp:2},   desc:'生命 +2'},
+  {id:'pl3_e', sub:'毛泽东思想和中国特色社会主义理论体系概论', emoji:'🎋', name:'改革开放者',   rar:1, b:{atk:.05}, desc:'攻击 +5%'},
+  {id:'pl3_f', sub:'毛泽东思想和中国特色社会主义理论体系概论', emoji:'⭐', name:'中国特色建设者', rar:1, b:{crit:.03}, desc:'暴击率 +3%'},
+  {id:'pl3_g', sub:'毛泽东思想和中国特色社会主义理论体系概论', emoji:'🌉', name:'一国两制执行者', rar:1, b:{coin:.10}, desc:'金币 +10%'},
+  {id:'pl3_h', sub:'毛泽东思想和中国特色社会主义理论体系概论', emoji:'🐉', name:'东方巨龙',     rar:2, b:{atk:.12}, desc:'攻击 +12%'},
+  /* ---- 政治：中国近现代史纲要 ---- */
+  {id:'pl4_a', sub:'中国近现代史纲要', emoji:'📖', name:'史实记录者', rar:0, b:{atk:.02}, desc:'攻击 +2%'},
+  {id:'pl4_b', sub:'中国近现代史纲要', emoji:'🕯️', name:'近代烛火',   rar:0, b:{hp:3},   desc:'生命 +3'},
+  {id:'pl4_c', sub:'中国近现代史纲要', emoji:'🗺️', name:'地图寻踪者', rar:0, b:{coin:.05}, desc:'金币 +5%'},
+  {id:'pl4_d', sub:'中国近现代史纲要', emoji:'📜', name:'文献守护者', rar:0, b:{hp:2},   desc:'生命 +2'},
+  {id:'pl4_e', sub:'中国近现代史纲要', emoji:'⚔️', name:'五四先锋',   rar:1, b:{atk:.05}, desc:'攻击 +5%'},
+  {id:'pl4_f', sub:'中国近现代史纲要', emoji:'🎆', name:'开国见证者', rar:1, b:{crit:.03}, desc:'暴击率 +3%'},
+  {id:'pl4_g', sub:'中国近现代史纲要', emoji:'🏛️', name:'党史研究员', rar:1, b:{coin:.10}, desc:'金币 +10%'},
+  {id:'pl4_h', sub:'中国近现代史纲要', emoji:'🔥', name:'民族复兴火种', rar:2, b:{atk:.12}, desc:'攻击 +12%'},
+  /* ---- 政治：思想道德与法治 ---- */
+  {id:'pl5_a', sub:'思想道德与法治', emoji:'🌻', name:'阳光少年',   rar:0, b:{atk:.02}, desc:'攻击 +2%'},
+  {id:'pl5_b', sub:'思想道德与法治', emoji:'🛡️', name:'道德卫士',   rar:0, b:{hp:3},   desc:'生命 +3'},
+  {id:'pl5_c', sub:'思想道德与法治', emoji:'🤝', name:'诚信使者',   rar:0, b:{coin:.05}, desc:'金币 +5%'},
+  {id:'pl5_d', sub:'思想道德与法治', emoji:'📏', name:'规矩守夜人', rar:0, b:{hp:2},   desc:'生命 +2'},
+  {id:'pl5_e', sub:'思想道德与法治', emoji:'⚖️', name:'法治先锋',   rar:1, b:{atk:.05}, desc:'攻击 +5%'},
+  {id:'pl5_f', sub:'思想道德与法治', emoji:'💖', name:'友善大使',   rar:1, b:{crit:.03}, desc:'暴击率 +3%'},
+  {id:'pl5_g', sub:'思想道德与法治', emoji:'🧘', name:'理想践行者', rar:1, b:{coin:.10}, desc:'金币 +10%'},
+  {id:'pl5_h', sub:'思想道德与法治', emoji:'🌈', name:'时代楷模',   rar:2, b:{atk:.12}, desc:'攻击 +12%'},
+  /* ---- 物理：力学 ---- */
+  {id:'ph1_a', sub:'力学', emoji:'🍎', name:'苹果观测员',   rar:0, b:{atk:.02}, desc:'攻击 +2%'},
+  {id:'ph1_b', sub:'力学', emoji:'🏹', name:'抛体射手',     rar:0, b:{hp:3},   desc:'生命 +3'},
+  {id:'ph1_c', sub:'力学', emoji:'⚓', name:'浮力水手',     rar:0, b:{coin:.05}, desc:'金币 +5%'},
+  {id:'ph1_d', sub:'力学', emoji:'🎡', name:'圆周骑士',     rar:0, b:{hp:2},   desc:'生命 +2'},
+  {id:'ph1_e', sub:'力学', emoji:'⚡', name:'动量剑客',     rar:1, b:{atk:.05}, desc:'攻击 +5%'},
+  {id:'ph1_f', sub:'力学', emoji:'🌀', name:'角动量舞者',   rar:1, b:{crit:.03}, desc:'暴击率 +3%'},
+  {id:'ph1_g', sub:'力学', emoji:'⚙️', name:'能量守恒者',   rar:1, b:{coin:.10}, desc:'金币 +10%'},
+  {id:'ph1_h', sub:'力学', emoji:'🪐', name:'万有引力大师', rar:2, b:{atk:.12}, desc:'攻击 +12%'},
+  /* ---- 物理：热学 ---- */
+  {id:'ph2_a', sub:'热学', emoji:'🌡️', name:'温度记录员', rar:0, b:{atk:.02}, desc:'攻击 +2%'},
+  {id:'ph2_b', sub:'热学', emoji:'🎈', name:'气体观察员', rar:0, b:{hp:3},   desc:'生命 +3'},
+  {id:'ph2_c', sub:'热学', emoji:'🧊', name:'冰水混合师', rar:0, b:{coin:.05}, desc:'金币 +5%'},
+  {id:'ph2_d', sub:'热学', emoji:'♨️', name:'散热达人',   rar:0, b:{hp:2},   desc:'生命 +2'},
+  {id:'ph2_e', sub:'热学', emoji:'🔥', name:'熵增先知',   rar:1, b:{atk:.05}, desc:'攻击 +5%'},
+  {id:'ph2_f', sub:'热学', emoji:'⚙️', name:'卡诺工程师', rar:1, b:{crit:.03}, desc:'暴击率 +3%'},
+  {id:'ph2_g', sub:'热学', emoji:'🌪️', name:'麦克斯韦恶魔', rar:1, b:{coin:.10}, desc:'金币 +10%'},
+  {id:'ph2_h', sub:'热学', emoji:'♾️', name:'热力学主宰', rar:2, b:{atk:.12}, desc:'攻击 +12%'},
+  /* ---- 物理：电磁学 ---- */
+  {id:'ph3_a', sub:'电磁学', emoji:'🧲', name:'磁铁爱好者', rar:0, b:{atk:.02}, desc:'攻击 +2%'},
+  {id:'ph3_b', sub:'电磁学', emoji:'🔋', name:'电容充电师', rar:0, b:{hp:3},   desc:'生命 +3'},
+  {id:'ph3_c', sub:'电磁学', emoji:'💡', name:'电流灯夫',   rar:0, b:{coin:.05}, desc:'金币 +5%'},
+  {id:'ph3_d', sub:'电磁学', emoji:'🔌', name:'电路小工',   rar:0, b:{hp:2},   desc:'生命 +2'},
+  {id:'ph3_e', sub:'电磁学', emoji:'⚡', name:'电场之矛',   rar:1, b:{atk:.05}, desc:'攻击 +5%'},
+  {id:'ph3_f', sub:'电磁学', emoji:'🌀', name:'涡旋电场猎手', rar:1, b:{crit:.03}, desc:'暴击率 +3%'},
+  {id:'ph3_g', sub:'电磁学', emoji:'📡', name:'电磁波信使', rar:1, b:{coin:.10}, desc:'金币 +10%'},
+  {id:'ph3_h', sub:'电磁学', emoji:'🌩️', name:'麦克斯韦雷霆', rar:2, b:{atk:.12}, desc:'攻击 +12%'},
+  /* ---- 物理：波动光学 ---- */
+  {id:'ph4_a', sub:'波动光学', emoji:'🔦', name:'手电实验员', rar:0, b:{atk:.02}, desc:'攻击 +2%'},
+  {id:'ph4_b', sub:'波动光学', emoji:'🌈', name:'彩虹观察者', rar:0, b:{hp:3},   desc:'生命 +3'},
+  {id:'ph4_c', sub:'波动光学', emoji:'🪞', name:'反射镜匠',   rar:0, b:{coin:.05}, desc:'金币 +5%'},
+  {id:'ph4_d', sub:'波动光学', emoji:'📷', name:'小孔成像师', rar:0, b:{hp:2},   desc:'生命 +2'},
+  {id:'ph4_e', sub:'波动光学', emoji:'🕯️', name:'双缝干涉者', rar:1, b:{atk:.05}, desc:'攻击 +5%'},
+  {id:'ph4_f', sub:'波动光学', emoji:'📐', name:'光栅测量师', rar:1, b:{crit:.03}, desc:'暴击率 +3%'},
+  {id:'ph4_g', sub:'波动光学', emoji:'🕶️', name:'偏振镜手',   rar:1, b:{coin:.10}, desc:'金币 +10%'},
+  {id:'ph4_h', sub:'波动光学', emoji:'💎', name:'光之主宰',   rar:2, b:{atk:.12}, desc:'攻击 +12%'},
+  /* ---- 物理：近代物理 ---- */
+  {id:'ph5_a', sub:'近代物理', emoji:'⏱️', name:'时钟旅人',   rar:0, b:{atk:.02}, desc:'攻击 +2%'},
+  {id:'ph5_b', sub:'近代物理', emoji:'🚀', name:'光速飞船员', rar:0, b:{hp:3},   desc:'生命 +3'},
+  {id:'ph5_c', sub:'近代物理', emoji:'📻', name:'黑体听音员', rar:0, b:{coin:.05}, desc:'金币 +5%'},
+  {id:'ph5_d', sub:'近代物理', emoji:'🎲', name:'概率掷骰人', rar:0, b:{hp:2},   desc:'生命 +2'},
+  {id:'ph5_e', sub:'近代物理', emoji:'🧊', name:'量子势阱客', rar:1, b:{atk:.05}, desc:'攻击 +5%'},
+  {id:'ph5_f', sub:'近代物理', emoji:'🌀', name:'自旋陀螺手', rar:1, b:{crit:.03}, desc:'暴击率 +3%'},
+  {id:'ph5_g', sub:'近代物理', emoji:'☢️', name:'核能工程师', rar:1, b:{coin:.10}, desc:'金币 +10%'},
+  {id:'ph5_h', sub:'近代物理', emoji:'👁️', name:'量子观察者', rar:2, b:{atk:.12}, desc:'攻击 +12%'},
+  /* ---- 物理：实验与前沿 ---- */
+  {id:'ph6_a', sub:'实验与前沿', emoji:'📐', name:'游标卡尺手', rar:0, b:{atk:.02}, desc:'攻击 +2%'},
+  {id:'ph6_b', sub:'实验与前沿', emoji:'⏲️', name:'计时员',     rar:0, b:{hp:3},   desc:'生命 +3'},
+  {id:'ph6_c', sub:'实验与前沿', emoji:'🧮', name:'误差计算师', rar:0, b:{coin:.05}, desc:'金币 +5%'},
+  {id:'ph6_d', sub:'实验与前沿', emoji:'📊', name:'数据绘图员', rar:0, b:{hp:2},   desc:'生命 +2'},
+  {id:'ph6_e', sub:'实验与前沿', emoji:'🖥️', name:'数值模拟者', rar:1, b:{atk:.05}, desc:'攻击 +5%'},
+  {id:'ph6_f', sub:'实验与前沿', emoji:'🔬', name:'实验设计者', rar:1, b:{crit:.03}, desc:'暴击率 +3%'},
+  {id:'ph6_g', sub:'实验与前沿', emoji:'🤖', name:'智能物理师', rar:1, b:{coin:.10}, desc:'金币 +10%'},
+  {id:'ph6_h', sub:'实验与前沿', emoji:'🛰️', name:'前沿探路人', rar:2, b:{atk:.12}, desc:'攻击 +12%'},
+];
+const ACHS = [
+  {id:'first_win', ic:'🥇', name:'初战告捷',   desc:'通关任意一个小节'},
+  {id:'perfect',   ic:'💯', name:'完美小节',   desc:'单个小节全部答对'},
+  {id:'star10',    ic:'⭐', name:'摘星学徒',   desc:'累计获得 10 颗星'},
+  {id:'star100',   ic:'🌠', name:'摘星大师',   desc:'累计获得 100 颗星'},
+  {id:'combo10',   ic:'🔥', name:'连击大师',   desc:'单场战斗达成 10 连击'},
+  {id:'combo30',   ic:'☄️', name:'连击之王',   desc:'单场战斗达成 30 连击'},
+  {id:'card5',     ic:'🎴', name:'初级收藏家', desc:'收集 5 张卡牌'},
+  {id:'card15',    ic:'🃏', name:'卡牌大师',   desc:'收集 15 张卡牌'},
+  {id:'cardall',   ic:'👑', name:'集卡传说',   desc:'集齐全部 152 张卡牌'},
+  {id:'gacha10',   ic:'🎰', name:'抽卡上头',   desc:'累计抽卡 10 次'},
+  {id:'boss50',    ic:'🐉', name:'屠龙勇者',   desc:'累计击败 50 个 BOSS'},
+  {id:'lv10',      ic:'🧙', name:'学霸养成',   desc:'勇者等级达到 10 级'},
+  {id:'rich',      ic:'💰', name:'富甲一方',   desc:'同时持有 1000 金币'},
+  {id:'sub_all',   ic:'📚', name:'主线贯通',   desc:'通关（任一星级）全部小节（数学+政治+物理）'},
+  {id:'star300',   ic:'🌟', name:'摘星宗师',   desc:'累计获得 300 颗星'},
+  {id:'star_all',  ic:'👑', name:'星光满堂',   desc:'全部小节获得 3 星（数学+政治+物理）'},
+  {id:'lv30',      ic:'🧙', name:'学霸至尊',   desc:'勇者等级达到 30 级'},
+  {id:'lvmax',     ic:'🌌', name:'满级传说',   desc:'勇者等级达到满级（全星之日，满级之时）'},
+  {id:'card40',    ic:'🃏', name:'收藏行家',   desc:'收集 40 张卡牌'},
+  {id:'card80',    ic:'🎴', name:'卡牌宗师',   desc:'收集 80 张卡牌'},
+  {id:'card120',   ic:'💠', name:'图鉴狂人',   desc:'收集 120 张卡牌'},
+  {id:'combo60',   ic:'💫', name:'无双乱舞',   desc:'单场战斗达成 60 连击'},
+  {id:'boss150',   ic:'🐲', name:'龙裔猎手',   desc:'累计击败 150 个 BOSS'},
+  {id:'boss300',   ic:'👹', name:'弑神者',     desc:'累计击败 300 个 BOSS'},
+  {id:'gacha50',   ic:'🎰', name:'抽卡上瘾',   desc:'累计抽卡 50 次'},
+  {id:'correct500',ic:'📝', name:'答题健将',   desc:'累计答对 500 题'},
+  {id:'correct2000',ic:'📚',name:'题海无涯',   desc:'累计答对 2000 题'},
+  {id:'perfect10', ic:'💯', name:'滴水不漏',   desc:'完成 10 次完美小节（全对三星）'},
+  {id:'perfect50', ic:'✨', name:'完美主义',   desc:'完成 50 次完美小节（全对三星）'},
+  {id:'sections50',ic:'🗺️', name:'闯关老手',   desc:'通关 50 个小节'},
+  {id:'sections200',ic:'🏔️',name:'长征勇者',   desc:'通关 200 个小节'},
+  {id:'coins5000', ic:'💰', name:'家财万贯',   desc:'同时持有 5000 金币'},
+  {id:'math_all',  ic:'🧮', name:'数学征服者', desc:'通关（任一星级）全部数学小节'},
+  {id:'politics_all',ic:'📕',name:'政坛谋士',  desc:'通关（任一星级）全部政治小节'},
+  {id:'physics_all',ic:'⚛️',name:'物理学家',  desc:'通关（任一星级）全部物理小节'},
+];
+function loadProfile(){
+  let p=null; try{ p=JSON.parse(localStorage.getItem(PROFILE_KEY)); }catch(e){}
+  if(!p) p={};
+  return Object.assign({xp:0,lv:1,coins:0,cards:{},achs:{},stars:{},gacha:0,pressure:0,
+    stats:{correct:0,wrong:0,kills:0,bossKills:0,maxCombo:0,sections:0,perfectCount:0}}, p);
+}
+let PF = loadProfile();
+function saveProfile(){ try{ localStorage.setItem(PROFILE_KEY, JSON.stringify(PF)); }catch(e){} }
+/* 动态难度：近期连败积累压力(0~3)，怪血按 1+压力×0.9 倍上浮；
+   每败一局 +1、每胜一局 -0.45 → 胜多败少时回到基准（打得过），连败则迅速打不过 */
+function diffMult(){ return 1 + (PF.pressure||0)*0.9; }
+// 满级 = 全部小节满星（大学数学 + 政治 + 物理 + 小初高数学/政治/物理）
+const MAX_LV = (Object.keys(MATH).reduce((n,k)=>n+MATH[k].length,0)
+  + Object.keys(POLITICS||{}).reduce((n,k)=>n+(POLITICS[k]||[]).length,0)
+  + Object.keys(PHYSICS||{}).reduce((n,k)=>n+(PHYSICS[k]||[]).length,0)
+  + schoolSecCount(window.SCHOOLMATH)
+  + schoolSecCount(window.SCHOOLPOLITICS)
+  + schoolSecCount(window.SCHOOLPHYSICS)) * 3;
+if(PF.lv > MAX_LV) PF.lv = MAX_LV;
+function xpNeed(){ return 100; }
+// Toast 通知
+function toast(msg, kind){
+  const t=el(`<div class="toast ${kind||''}">${msg}</div>`);
+  document.body.appendChild(t);
+  setTimeout(()=>{ t.classList.add('out'); setTimeout(()=>t.remove(),420); }, 2400);
+}
+// 升级金闪
+function levelFlash(){
+  const f=document.getElementById('lvFlash');
+  f.classList.remove('active'); void f.offsetWidth; f.classList.add('active');
+  setTimeout(()=>f.classList.remove('active'),900);
+}
+function addXP(n){
+  const mult = 1 + cardBonus().xp;                 // 经验倍率：仅卡牌加成（等级不再加速，保证"全星≈满级"）
+  const gain = Math.max(1, Math.round(n*mult));
+  if(PF.lv >= MAX_LV) return gain;                 // 满级：经验不再累计
+  PF.xp += gain;
+  let ups=0;
+  while(PF.xp >= xpNeed()){
+    if(PF.lv >= MAX_LV){ PF.xp = 0; break; }       // 升到满级：清空溢出经验
+    PF.xp -= xpNeed(); PF.lv++; ups++;
   }
-  s.ts = Date.now();
-  s.level = level; s.round = P.round; s.score = P.score;
-  s.weapon = P.weapon; s.weaponLv = weaponLevel(); s.wName = weaponName(weaponLevel());
-  s.maxHp = P.maxHp; s.hp = P.hp; s.correct = P.correct; s.wrong = P.wrong;
-  s.stage1Time = P.stage1Time || null;
-  s.usedWords = Array.from(usedWords);
-  s.total = (DATA[level]||[]).length;
-  // 保留最多 12 个存档（5个等级上限实际上不到12）
-  if(list.length>12){ list.sort((a,b)=>a.ts-b.ts); list.splice(0,list.length-12); }
-  persistSaves(list);
+  if(ups>0){
+    levelFlash(); winBurst(); Sfx.win();
+    toast(`🎉 勇者升级！Lv.${PF.lv}（攻击+4% · 生命+2）`, 'lv');
+    checkAchs();
+  }
+  return gain;
 }
-function removeSave(src){ persistSaves(loadSaves().filter(x=>x.src!==src)); }
-function loadGame(save){
-  level = save.level;
-  P = { weapon:save.weapon, maxHp:save.maxHp, hp:Math.min(save.hp,save.maxHp), score:save.score,
-        round:save.round, correct:save.correct, wrong:save.wrong, stage1Time:save.stage1Time||null };
-  usedWords = new Set(save.usedWords||[]);
-  doorGroup.visible=false;
-  heroGroup.position.set(0,0.7,HERO_Z);
-  applyTheme();
-  updateHeroWeapon();
-  setView();
-  state='question';
-  showQuestion();
+function addCoins(n){
+  const mult = 1 + PF.lv*0.02 + cardBonus().coin;
+  const gain = Math.max(0, Math.round(n*mult));
+  PF.coins += gain;
+  if(PF.coins >= 1000) checkAchs();
+  return gain;
 }
-// 打开/关闭存档选择浮层
-function openLoadOverlay(){
-  let overlay = ui.querySelector('.save-overlay'); if(overlay) overlay.remove();
-  overlay = el('<div class="save-overlay"></div>');
-  const list = loadSaves().slice().reverse();
-  let items = list.length
-    ? list.map((s,i)=>{
-        const t = new Date(s.ts);
-        const dt = `${t.getMonth()+1}月${t.getDate()}日 ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
-        return `<div class="save-item" data-idx="${i}">
-            <div>
-              <div class="nm">${s.level} · 第 ${s.round+1} 关</div>
-              <div class="dt">${s.wName} Lv${s.weaponLv} · 血 ${Math.max(0,s.hp)}/${s.maxHp} · 分 ${s.score} · ${dt}</div>
-            </div>
-            <button class="del" data-src="${s.src}">✕</button>
-          </div>`;
-      }).join('')
-    : '<div class="sub" style="opacity:.7">暂无存档</div>';
-  overlay.innerHTML = `
-    <div class="save-box">
-      <div class="save-title">
-        <h2>🎮 我的存档</h2>
-        <button class="del" data-close="1" style="background:none;border:none;color:#7a7a6e;font-size:18px;cursor:pointer">✕</button>
-      </div>
-      ${items}
-      <button class="save-new">开始新游戏</button>
-    </div>`;
-  overlay.querySelector('.save-new').onclick=()=>{ overlay.remove(); showLevelSelect(); };
-  overlay.querySelector('[data-close]').onclick=()=>overlay.remove();
-  overlay.querySelectorAll('.save-item').forEach(item=>{
-    const idx = item.dataset.idx;
-    item.onclick=(ev)=>{ if(ev.target.closest('.del')) return; const sv=list[idx]; overlay.remove(); loadGame(sv); };
-  });
-  overlay.querySelectorAll('.del[data-src]').forEach(b=>{
-    b.onclick=(ev)=>{ ev.stopPropagation(); removeSave(b.dataset.src); openLoadOverlay(); };
-  });
-  ui.appendChild(overlay);
+function ownedCardCount(){ return Object.keys(PF.cards).filter(id=>PF.cards[id]>0).length; }
+function grantCard(id, silent){
+  const c = CARDS.find(x=>x.id===id); if(!c) return null;
+  let dup = (PF.cards[id]||0) > 0;
+  PF.cards[id] = (PF.cards[id]||0)+1;
+  let dupGold = 0;
+  if(dup){ dupGold = Math.round(RAR_DUPGOLD[c.rar]*1.5); PF.coins += dupGold; }
+  saveProfile();
+  if(!silent){
+    toast(`${c.rar>=2?'✨':''}🎴 获得卡牌「${c.name}」${RAR_NAMES[c.rar]}${dup?'（重复 → +'+dupGold+'金币）':''}`, 'card');
+    Sfx.upgrade();
+    cardRushBurst();
+    if(c.rar>=2) winBurst();
+  }
+  checkAchs();
+  return {card:c, dup, dupGold};
 }
+function rollCard(sub){
+  const r=Math.random(); let acc=0, rar=0;
+  for(const [rr,w] of RAR_WEIGHTS){ acc+=w; if(r<acc){ rar=rr; break; } }
+  let pool = sub ? CARDS.filter(c=>c.sub===sub && c.rar===rar) : CARDS.filter(c=>c.rar===rar);
+  if(!pool.length) pool = sub ? CARDS.filter(c=>c.sub===sub) : CARDS;
+  return pool[(Math.random()*pool.length)|0];
+}
+function unlockAch(id){
+  if(PF.achs[id]) return;
+  const a=ACHS.find(x=>x.id===id); if(!a) return;
+  PF.achs[id]=Date.now(); saveProfile();
+  toast(`🏆 成就解锁「${a.name}」`, 'ach');
+  Sfx.win();
+}
+function checkAchs(){
+  const starSum = Object.values(PF.stars).reduce((a,b)=>a+b,0);
+  if(PF.stats.sections>=1) unlockAch('first_win');
+  if(starSum>=10) unlockAch('star10');
+  if(starSum>=100) unlockAch('star100');
+  if(PF.stats.maxCombo>=10) unlockAch('combo10');
+  if(PF.stats.maxCombo>=30) unlockAch('combo30');
+  if(ownedCardCount()>=5) unlockAch('card5');
+  if(ownedCardCount()>=15) unlockAch('card15');
+  if(ownedCardCount()>=CARDS.length) unlockAch('cardall');
+  if(PF.gacha>=10) unlockAch('gacha10');
+  if(PF.stats.bossKills>=50) unlockAch('boss50');
+  if(PF.lv>=10) unlockAch('lv10');
+  if(PF.coins>=1000) unlockAch('rich');
+  if(starSum>=300) unlockAch('star300');
+  if(allStars()) unlockAch('star_all');
+  if(PF.lv>=30) unlockAch('lv30');
+  if(PF.lv>=MAX_LV) unlockAch('lvmax');
+  if(ownedCardCount()>=40) unlockAch('card40');
+  if(ownedCardCount()>=80) unlockAch('card80');
+  if(ownedCardCount()>=120) unlockAch('card120');
+  if(PF.stats.maxCombo>=60) unlockAch('combo60');
+  if(PF.stats.bossKills>=150) unlockAch('boss150');
+  if(PF.stats.bossKills>=300) unlockAch('boss300');
+  if(PF.gacha>=50) unlockAch('gacha50');
+  if(PF.stats.correct>=500) unlockAch('correct500');
+  if(PF.stats.correct>=2000) unlockAch('correct2000');
+  if((PF.stats.perfectCount||0)>=10) unlockAch('perfect10');
+  if((PF.stats.perfectCount||0)>=50) unlockAch('perfect50');
+  if(PF.stats.sections>=50) unlockAch('sections50');
+  if(PF.stats.sections>=200) unlockAch('sections200');
+  if(PF.coins>=5000) unlockAch('coins5000');
+  const totalSecs = Object.keys(MATH).reduce((n,k)=>n+MATH[k].length,0)
+                 + Object.keys(POLITICS||{}).reduce((n,k)=>n+(POLITICS[k]||[]).length,0)
+                 + Object.keys(PHYSICS||{}).reduce((n,k)=>n+(PHYSICS[k]||[]).length,0)
+                 + schoolSecCount(window.SCHOOLMATH)
+                 + schoolSecCount(window.SCHOOLPOLITICS)
+                 + schoolSecCount(window.SCHOOLPHYSICS);
+  if(Object.keys(PF.stars).length>=totalSecs) unlockAch('sub_all');
+  if(subjectAllDone('math')) unlockAch('math_all');
+  if(subjectAllDone('politics')) unlockAch('politics_all');
+  if(subjectAllDone('physics')) unlockAch('physics_all');
+}
+// 全部小节满星？（stars key 形如 "科目|节名"，与 secKey 写入时一致）
+function allStars(){
+  for(const k of Object.keys(MATH)) for(let i=0;i<MATH[k].length;i++) if((PF.stars[k+'|'+MATH[k][i].name]||0)<3) return false;
+  for(const k of Object.keys(POLITICS||{})) for(let i=0;i<POLITICS[k].length;i++) if((PF.stars[k+'|'+POLITICS[k][i].name]||0)<3) return false;
+  for(const k of Object.keys(PHYSICS||{})) for(let i=0;i<PHYSICS[k].length;i++) if((PF.stars[k+'|'+PHYSICS[k][i].name]||0)<3) return false;
+  for(const st of Object.keys(window.SCHOOLMATH||{})) for(const b of window.SCHOOLMATH[st]) for(let i=0;i<(b.secs||[]).length;i++) if((PF.stars[b.name+'|'+b.secs[i].name]||0)<3) return false;
+  for(const st of Object.keys(window.SCHOOLPOLITICS||{})) for(const b of window.SCHOOLPOLITICS[st]) for(let i=0;i<(b.secs||[]).length;i++) if((PF.stars[b.name+'|'+b.secs[i].name]||0)<3) return false;
+  for(const st of Object.keys(window.SCHOOLPHYSICS||{})) for(const b of window.SCHOOLPHYSICS[st]) for(let i=0;i<(b.secs||[]).length;i++) if((PF.stars[b.name+'|'+b.secs[i].name]||0)<3) return false;
+  return true;
+}
+// 某一学科全部小节至少通关（任一星级）
+function subjectAllDone(which){
+  const data = which==='math' ? MATH : (which==='politics' ? POLITICS : PHYSICS);
+  for(const k of Object.keys(data||{})) for(let i=0;i<data[k].length;i++) if(!PF.stars[k+'|'+data[k][i].name]) return false;
+  const sdata = which==='math' ? (window.SCHOOLMATH||{}) : which==='politics' ? (window.SCHOOLPOLITICS||{}) : (window.SCHOOLPHYSICS||{});
+  for(const st of Object.keys(sdata)) for(const b of sdata[st]) for(let i=0;i<(b.secs||[]).length;i++) if(!PF.stars[b.name+'|'+b.secs[i].name]) return false;
+  return true;
+}
+// 卡牌被动总和
+function cardBonus(){
+  let atk=0,hp=0,crit=0,coin=0,xp=0;
+  for(const c of CARDS){
+    if(!PF.cards[c.id]) continue;
+    atk+=c.b.atk||0; hp+=c.b.hp||0; crit+=c.b.crit||0; coin+=c.b.coin||0; xp+=c.b.xp||0;
+  }
+  return {atk,hp,crit,coin,xp};
+}
+// 勇者总加成（等级 + 卡牌）
+function heroBonus(){
+  const cb=cardBonus();
+  return {
+    atk: 1 + PF.lv*0.04 + cb.atk,
+    hp: Math.round(PF.lv*2 + cb.hp),
+    crit: Math.min(0.5, 0.10 + cb.crit),
+    coin: 1 + PF.lv*0.02 + cb.coin,
+    xp: 1 + PF.lv*0.02 + cb.xp
+  };
+}
+// 实际攻击力（武器 × 养成加成）
+function heroAtk(){ return Math.max(1, Math.round(P.weapon * heroBonus().atk)); }
+function secKey(subject, idx){ return subject + '|' + (QBank()[subject][idx] ? QBank()[subject][idx].name : idx); }
+function starHTML(n){
+  let s=''; for(let i=0;i<3;i++) s+=`<span class="${i<n?'':'off'}">★</span>`;
+  return s;
+}
+
 let battleBusy = false;
 let heroNextAttack = 0;
 let lastBattleTick = 0;
@@ -3550,7 +4182,14 @@ const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0x0d0d1a, 26, 46);
-const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 100);
+/* 手机竖屏旋转90度：CSS 把 #app 转90度铺满，渲染/交互用逻辑宽高（旋转后宽=innerHeight） */
+const _mqCoarse = matchMedia('(pointer:coarse)');
+function rot90(){ return _mqCoarse.matches && innerHeight > innerWidth; }
+function viewSize(){
+  const rot = rot90();
+  return { rot, w: rot ? innerHeight : innerWidth, h: rot ? innerWidth : innerHeight };
+}
+const camera = new THREE.PerspectiveCamera(45, viewSize().w/viewSize().h, 0.1, 100);
 camera.position.set(0, 12.5, 9.5); camera.lookAt(0, 0, -1.5);
 
 const hemi = new THREE.HemisphereLight(0xffffff, 0x2a2a5a, 1.05); scene.add(hemi);
@@ -3685,14 +4324,13 @@ const burstPool=[];
 // 共享蝙蝠翼剪影（贝塞尔曲线，上缘大弧 + 下缘三指骨锯齿；小怪原尺寸、BOSS放大复用）
 const WING_GEO = (()=>{
   const s = new THREE.Shape();
-  s.moveTo(0,.05);
-  s.quadraticCurveTo(.3,.38, .6,.24);   // 上缘大弧 → 翼尖
-  s.quadraticCurveTo(.52,.08, .64,-.02);// 翼尖 → 指尖1
-  s.quadraticCurveTo(.5,-.04, .52,-.18);// 指尖2
-  s.quadraticCurveTo(.38,-.1, .4,-.28); // 指尖3
-  s.quadraticCurveTo(.26,-.16, .12,-.28);// 下缘
-  s.quadraticCurveTo(.06,-.1, 0,-.06);  // 收根
-  return new THREE.ShapeGeometry(s, 5);
+  s.moveTo(0,.04);
+  s.quadraticCurveTo(.22,.3, .52,.2);   // 上缘大弧（缓圆）
+  s.quadraticCurveTo(.62,.1, .6,-.04);  // 翼尖圆润收拢，不再分指
+  s.quadraticCurveTo(.42,-.02, .38,-.14);// 下缘中段缓弧
+  s.quadraticCurveTo(.2,-.08, .1,-.2);  // 下缘尾段
+  s.quadraticCurveTo(.04,-.1, 0,-.05);  // 收根
+  return new THREE.ShapeGeometry(s, 8);
 })();
 
 /* ============ 小人物模型 ============ */
@@ -3759,11 +4397,19 @@ function leg(x){const s=0.24;const g=new THREE.Group();
   const cape=new THREE.Mesh(capeGeo,
     new THREE.MeshStandardMaterial({color:0x4caf6d,roughness:.7,side:THREE.DoubleSide}));
   cape.position.set(0,1.58,-.44); heroGroup.add(cape); heroGroup.cape=cape;
-  heroGroup.add(arm(-0.62)); heroGroup.add(arm(0.62));
+  heroGroup.armL=arm(-0.62); heroGroup.add(heroGroup.armL);
+  heroGroup.armR=arm(0.62); heroGroup.add(heroGroup.armR);
   heroGroup.add(leg(-0.24)); heroGroup.add(leg(0.24));
   // 环绕武器组（唯一武器形态：飞剑环绕战士旋转）
   heroGroup.orbitGroup = new THREE.Group();
   heroGroup.add(heroGroup.orbitGroup);
+  // 施法能量球：双手念诀时在双掌之间凝聚，出手瞬间化作飞刀
+  const orbM = new THREE.MeshStandardMaterial({color:0xfff4cf,emissive:0xffd27a,emissiveIntensity:1.8,roughness:.25,transparent:true,opacity:.95});
+  heroGroup.castOrb = new THREE.Mesh(new THREE.SphereGeometry(.16,14,12), orbM);
+  heroGroup.castOrb.position.set(0,1.32,-0.55);
+  heroGroup.castOrb.scale.setScalar(0.001);
+  heroGroup.castOrb.visible=false;
+  heroGroup.add(heroGroup.castOrb);
   heroGroup.position.set(0,0.7,HERO_Z);
   scene.add(heroGroup);
 })();
@@ -3789,13 +4435,17 @@ function weaponColor(lv){
   c.offsetHSL(tier*0.07 % 1, 0, Math.min(tier*0.03, 0.15)); // 逐阶段微提亮度/色相
   return c.getHex();
 }
-function weaponLevel(){ return Math.round(Math.log2(Math.max(1,P.weapon))); }
-// 随武器等级提升的攻速：等级越高，攻击间隔越短；倍率封顶MAX_ATK_MULT(2048×)
-// 封顶后升级只增加攻击力，攻速不再提升
+function weaponLevel(){
+  const w = Math.max(1, P.weapon);
+  if(w <= 32) return Math.round(Math.log2(w));      // 翻倍阶段：1→32 倍，等级 0→5
+  return 5 + Math.ceil((w - 32) / 100);             // 32 倍后：每次强化 +100 攻击，逐级递增
+}
+// 随武器等级提升的攻速：等级越高，攻击间隔越短；倍率封顶MAX_ATK_MULT(120×)
+// 32 倍攻击封顶后攻速继续提升，直到 120 倍后不再增长（之后每次强化仅 +100 攻击）
 function heroAttackInterval(){
   return ATTACK_INTERVAL / heroAttackSpeedMult();
 }
-// 攻速倍率显示（相对基础攻速，封顶2048×）
+// 攻速倍率显示（相对基础攻速，封顶120×）
 function heroAttackSpeedMult(){
   return Math.min(Math.pow(1/ATK_SPEED_FACTOR, weaponLevel()), MAX_ATK_MULT);
 }
@@ -3883,35 +4533,40 @@ function buildMonster(color, round){
   const g = new THREE.Group();
   const eyeColor = round%2 ? 0xff3030 : 0xffd700;
   const skin = new THREE.MeshStandardMaterial({color, roughness:.5, emissive:color, emissiveIntensity:.16});
-  const darkM = new THREE.MeshStandardMaterial({color:0x232338, roughness:.6, metalness:.4});
+  const shade = new THREE.Color(color).multiplyScalar(.76);   // 同色系暗调，整体浑然一体
+  const darkM = new THREE.MeshStandardMaterial({color:shade, roughness:.6});
   const goldM = new THREE.MeshStandardMaterial({color:0xffd700, roughness:.3, metalness:.7});
   const hornM = new THREE.MeshStandardMaterial({color:0xf0d9a8,roughness:.35,metalness:.25});
-  // 胶囊躯干（微前倾压迫感）+ 深色胸甲 + 发光宝石
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(.85,.7,6,12), skin);
+  // 圆润胶囊躯干（高细分无棱角）+ 发光宝石
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(.85,.7,8,16), skin);
   body.position.y=1.5; body.scale.set(1.06,1,.88); g.add(body);
-  const chest = new THREE.Mesh(new THREE.CapsuleGeometry(.78,.4,6,12), darkM);
-  chest.rotation.x=Math.PI/2; chest.scale.set(1.08,.34,1.1); chest.position.set(0,1.58,.5); g.add(chest);
-  const gem = new THREE.Mesh(new THREE.OctahedronGeometry(.24),
+  const gem = new THREE.Mesh(new THREE.SphereGeometry(.2,16,12),
     new THREE.MeshStandardMaterial({color:eyeColor,roughness:.1,metalness:.3,emissive:eyeColor,emissiveIntensity:1.2}));
   gem.scale.z=.5; gem.position.set(0,1.62,.78); g.add(gem);
   // 护膝双腿 + 金膝甲 + 巨足
   [-.52,.52].forEach(x=>{
     const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.3,.5,4,10), darkM);
     leg.position.set(x,.55,0); g.add(leg);
-    const knee = new THREE.Mesh(new THREE.SphereGeometry(.19,10,8), goldM);
+    const knee = new THREE.Mesh(new THREE.SphereGeometry(.19,12,10), goldM);
     knee.position.set(x,.74,.13); g.add(knee);
-    const ft = new THREE.Mesh(new THREE.BoxGeometry(.52,.22,.64), darkM);
-    ft.position.set(x,.11,.08); g.add(ft);
+    const ft = new THREE.Mesh(new THREE.SphereGeometry(.3,14,12), darkM);
+    ft.scale.set(1,.6,1.15); ft.position.set(x,.11,.08); g.add(ft);
   });
-  // 方颅 + 下颚 + 獠牙 + 头盔 + 金色面甲
-  const head = new THREE.Mesh(new THREE.BoxGeometry(1.25,1.05,1.05), skin); head.position.y=2.72; g.add(head);
-  const jaw = new THREE.Mesh(new THREE.BoxGeometry(.95,.34,.85), darkM); jaw.position.set(0,2.16,.1); g.add(jaw);
+  // 圆润巨头 + 下颚 + 圆头獠牙 + 半球盔 + 细圆面甲
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.62,20,16), skin);
+  head.scale.set(1.06,.92,.92); head.position.y=2.74; g.add(head);
+  const jaw = new THREE.Mesh(new THREE.SphereGeometry(.46,16,12), darkM);
+  jaw.scale.set(1.1,.42,.95); jaw.position.set(0,2.16,.08); g.add(jaw);
   [-.26,.26].forEach(x=>{
-    const f = new THREE.Mesh(new THREE.ConeGeometry(.09,.34,6), new THREE.MeshStandardMaterial({color:0xfff8ec,roughness:.3}));
+    const f = new THREE.Mesh(new THREE.ConeGeometry(.085,.3,8), new THREE.MeshStandardMaterial({color:0xfff8ec,roughness:.3}));
     f.position.set(x,2.38,.44); g.add(f);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(.045,8,6), new THREE.MeshStandardMaterial({color:0xfff8ec,roughness:.3}));
+    tip.position.set(x,2.2,.5); g.add(tip);
   });
-  const helm = new THREE.Mesh(new THREE.BoxGeometry(1.34,.5,1.14), darkM); helm.position.y=3.16; g.add(helm);
-  const visor = new THREE.Mesh(new THREE.BoxGeometry(1.14,.16,.08), goldM); visor.position.set(0,2.9,.54); g.add(visor);
+  const helm = new THREE.Mesh(new THREE.SphereGeometry(.6,20,14), darkM);
+  helm.scale.set(1.18,.55,1); helm.position.y=3.12; g.add(helm);
+  const visor = new THREE.Mesh(new THREE.CapsuleGeometry(.065,1.05,4,10), goldM);
+  visor.rotation.z=Math.PI/2; visor.scale.set(1.1,1,1); visor.position.set(0,2.9,.54); g.add(visor);
   // 发光双眼 + 白色高光点（更传神）
   const eyeM = new THREE.MeshBasicMaterial({color:eyeColor});
   [-.32,.32].forEach(x=>{
@@ -3922,12 +4577,18 @@ function buildMonster(color, round){
   });
   // 三段弯角 + 金环王冠（BOSS身份象征）
   [-1,1].forEach(s=>{
-    const h1 = new THREE.Mesh(new THREE.ConeGeometry(.21,.68,8), hornM);
+    const h1 = new THREE.Mesh(new THREE.ConeGeometry(.21,.68,10), hornM);
     h1.position.set(.5*s,3.52,0); h1.rotation.z=-.28*s; g.add(h1);
-    const h2 = new THREE.Mesh(new THREE.ConeGeometry(.14,.55,8), hornM);
+    const c1 = new THREE.Mesh(new THREE.SphereGeometry(.1,10,8), hornM);
+    c1.position.set(.66*s,3.84,0); g.add(c1);
+    const h2 = new THREE.Mesh(new THREE.ConeGeometry(.14,.55,10), hornM);
     h2.position.set(.72*s,4.02,0); h2.rotation.z=-.72*s; g.add(h2);
-    const h3 = new THREE.Mesh(new THREE.ConeGeometry(.08,.42,8), hornM);
+    const c2 = new THREE.Mesh(new THREE.SphereGeometry(.075,10,8), hornM);
+    c2.position.set(.88*s,4.24,0); g.add(c2);
+    const h3 = new THREE.Mesh(new THREE.ConeGeometry(.08,.42,10), hornM);
     h3.position.set(.98*s,4.34,0); h3.rotation.z=-1.05*s; g.add(h3);
+    const c3 = new THREE.Mesh(new THREE.SphereGeometry(.045,8,6), hornM);
+    c3.position.set(1.09*s,4.44,0); g.add(c3);
   });
   const crown = new THREE.Mesh(new THREE.TorusGeometry(.5,.06,8,24),
     new THREE.MeshBasicMaterial({color:0xffd700,transparent:true,opacity:.95}));
@@ -3944,21 +4605,26 @@ function buildMonster(color, round){
     w.position.set(s*1.0,2.3,-.5); w.userData.side=s; g.add(w); wings.push(w);
   });
   // 半球肩甲 + 前缘金边 + 三肩刺
-  const padM = new THREE.MeshStandardMaterial({color:0x35355a,metalness:.7,roughness:.35});
+  const padM = new THREE.MeshStandardMaterial({color:shade, metalness:.7, roughness:.35});
   [-1,1].forEach(s=>{
     const pad = new THREE.Mesh(new THREE.SphereGeometry(.62,14,10), padM);
     pad.scale.y=.72; pad.position.set(1.18*s,2.2,0); g.add(pad);
     const trim = new THREE.Mesh(new THREE.TorusGeometry(.56,.05,8,20,Math.PI), goldM);
     trim.rotation.x=Math.PI/2; trim.position.set(1.18*s,2.16,0); g.add(trim);
     for(let i=0;i<3;i++){
-      const spike = new THREE.Mesh(new THREE.ConeGeometry(.1,.4,6), hornM);
-      spike.position.set(1.18*s+(i-1)*.32,2.54,.1); spike.rotation.z=(i-1)*.35*s; g.add(spike);
+      const rot=(i-1)*.35*s;
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(.09,.34,8), hornM);
+      spike.position.set(1.18*s+(i-1)*.32,2.54,.1); spike.rotation.z=rot; g.add(spike);
+      const st = new THREE.Mesh(new THREE.SphereGeometry(.05,8,6), hornM);
+      st.position.set(1.18*s+(i-1)*.32 - Math.sin(rot)*.3, 2.54 + Math.cos(rot)*.3, .1); g.add(st);
     }
   });
-  // 背脊四连刺
+  // 背脊圆钝短刺
   for(let i=0;i<4;i++){
-    const bk = new THREE.Mesh(new THREE.ConeGeometry(.15,.58-i*.08,6), hornM);
+    const bk = new THREE.Mesh(new THREE.ConeGeometry(.15,.58-i*.08,8), hornM);
     bk.position.set(0,2.5-i*.42,-.72); bk.rotation.x=-.55; g.add(bk);
+    const bt = new THREE.Mesh(new THREE.SphereGeometry(.06,8,6), hornM);
+    bt.position.set(0,2.5-i*.42+.5,-.72-.3); g.add(bt);
   }
   // 胶囊双臂 + 巨拳 + 指节金球 + 三尖爪
   [-1,1].forEach(s=>{
@@ -3967,19 +4633,18 @@ function buildMonster(color, round){
     const fist = new THREE.Mesh(new THREE.SphereGeometry(.42,12,10), darkM);
     fist.position.set(1.44*s,.62,.18); g.add(fist);
     for(let i=-1;i<=1;i++){
-      const kn = new THREE.Mesh(new THREE.SphereGeometry(.09,8,6), goldM);
+      const kn = new THREE.Mesh(new THREE.SphereGeometry(.09,10,8), goldM);
       kn.position.set(1.44*s+i*.2,.8,.44); g.add(kn);
-      const cl = new THREE.Mesh(new THREE.ConeGeometry(.09,.4,6), hornM);
+      const cl = new THREE.Mesh(new THREE.ConeGeometry(.085,.36,8), hornM);
       cl.position.set(1.44*s+i*.2,.5,.52); cl.rotation.x=Math.PI*.93; g.add(cl);
+      const ct = new THREE.Mesh(new THREE.SphereGeometry(.045,8,6), hornM);
+      ct.position.set(1.44*s+i*.2,.5-.35,.52+.06); g.add(ct);
     }
   });
-  // 双节尾巴（尾尖朝上翘）
-  const t1 = new THREE.Mesh(new THREE.ConeGeometry(.28,1.1,8), skin);
-  t1.rotation.x=Math.PI*.46; t1.position.set(0,1.15,-.9); g.add(t1);
-  const t2 = new THREE.Mesh(new THREE.ConeGeometry(.18,.9,8), skin);
-  t2.rotation.x=Math.PI*.3; t2.position.set(0,1.9,-1.4); g.add(t2);
-  const tTip = new THREE.Mesh(new THREE.ConeGeometry(.14,.32,6), hornM);
-  tTip.rotation.x=Math.PI*.26; tTip.position.set(0,2.26,-1.66); g.add(tTip);
+  // 圆润球串尾巴（尾尖朝上翘，无棱角）
+  const ta1 = new THREE.Mesh(new THREE.SphereGeometry(.27,14,12), skin); ta1.position.set(0,1.1,-.85); g.add(ta1);
+  const ta2 = new THREE.Mesh(new THREE.SphereGeometry(.19,14,12), skin); ta2.position.set(0,1.75,-1.32); g.add(ta2);
+  const ta3 = new THREE.Mesh(new THREE.SphereGeometry(.12,12,10), hornM); ta3.position.set(0,2.2,-1.6); g.add(ta3);
   // 胸口能量核心（脉动 + 光环 + 点光源）
   const core = new THREE.Mesh(new THREE.SphereGeometry(.2,14,12), new THREE.MeshBasicMaterial({color:eyeColor}));
   core.position.set(0,1.55,.82); g.add(core);
@@ -3990,7 +4655,7 @@ function buildMonster(color, round){
   // 环绕漂浮碎晶
   const shards = new THREE.Group();
   for(let i=0;i<5;i++){
-    const sh = new THREE.Mesh(new THREE.OctahedronGeometry(.14+Math.random()*.06),
+    const sh = new THREE.Mesh(new THREE.SphereGeometry(.13+Math.random()*.05,12,10),
       new THREE.MeshStandardMaterial({color,roughness:.2,emissive:color,emissiveIntensity:.8,transparent:true,opacity:.9}));
     const a = i/5*Math.PI*2;
     sh.position.set(Math.cos(a)*1.7, 2.4+Math.sin(i*2.1)*.25, Math.sin(a)*1.7);
@@ -4006,56 +4671,793 @@ function buildMonster(color, round){
 
 /* ============ 相机（竖屏固定视角） ============ */
 function setView(){
+  killMenuCam();
+  dayT0 = performance.now();          // 进入游戏：昼夜循环从落日重新开始
   // 竖屏：摄像机从更高、更远处俯瞰战场，-Z在屏幕上方，+Z在屏幕下方
   camera.position.set(0, 12.5, 9.5);
   camera.lookAt(0, 0, -1.5);
   camBase.copy(camera.position);
 }
 
+/* ============================================================
+ * 主菜单 3D 环绕拨盘 + 落日/月升环境（约60秒循环，光遇风）
+ * 拨盘为场景内真实层叠轮盘：身前(远处)按钮最小且可能被战士挡住，
+ * 身后(近处)按钮最大；点击身后(近处)按钮后：按钮升起淡出→压低视角→抬升→进入答题。
+ * ============================================================ */
+const DIAL_N = 4, DIAL_STEP = Math.PI*2/DIAL_N, DIAL_R = 2.75;
+const DIAL_CZ = HERO_Z;                                   // 拨盘环绕战士
+const HIGH_POS  = new THREE.Vector3(0, 10.6, 13.6);       // 菜单高位：能看到四周环境
+const HIGH_LOOK = new THREE.Vector3(0, 1.0, 1.6);
+const DIP_POS   = new THREE.Vector3(0, 2.9, 8.9);          // 压低视角：从战士身后往前看
+const DIP_LOOK  = new THREE.Vector3(0, 1.7, 1.2);
+const DIAL_SUBJECTS = [
+  {icon:'🎮', title:'英语勇者', sub:'词汇 · 小学→六级',     tint:0x4c9af0, enter:()=>{Sfx.click(); gameType='english';  showSubjectMenu();}},
+  {icon:'🧮', title:'数学勇者', sub:'数学 · 小学→大学',     tint:0x3fae5a, enter:()=>{Sfx.click(); gameType='math';     showSubjectMenu();}},
+  {icon:'📕', title:'政治勇者', sub:'道法思政 · 小学→大学', tint:0xe0566b, enter:()=>{Sfx.click(); gameType='politics'; showSubjectMenu();}},
+  {icon:'⚛️', title:'物理勇者', sub:'物理 · 初中→大学',     tint:0x9d6cf0, enter:()=>{Sfx.click(); gameType='physics';  showSubjectMenu();}},
+];
+let dialGroup=null, dialBtns=[], dialMeshes=[], dialGlow=null, dialMark=null;
+let dialAngle=Math.PI, dialTarget=Math.PI, dialVel=0;   // 初始0号(英语)在身后(近处)卡位
+let dialDragging=false, dialPid=null, dialMovedPx=0, dialStartX=0, dialStartY=0, dialStartAngle=0;
+let dialFlashT=0, selGate=null, menuBusy=false, camAnim=null;
+const menuCamPos = HIGH_POS.clone(), menuCamLook = HIGH_LOOK.clone();
+const _tmpC1=new THREE.Color(), _tmpC2=new THREE.Color(), _white=new THREE.Color(0xffffff);
+
+/* ---------- 相机运镜 ---------- */
+function camTween(toPos, toLook, dur, done){
+  camAnim = { p0:camera.position.clone(), l0:menuCamLook.clone(),
+              p1:toPos.clone(), l1:toLook.clone(), t0:performance.now(), dur:dur*1000, done };
+}
+function killMenuCam(){ camAnim=null; menuBusy=false; }
+function updateMenuCam(now){
+  if(camAnim){
+    const k = Math.min(1,(now-camAnim.t0)/camAnim.dur);
+    const e = k<.5 ? 2*k*k : 1-Math.pow(-2*k+2,2)/2;    // easeInOutQuad
+    menuCamPos.lerpVectors(camAnim.p0, camAnim.p1, e);
+    menuCamLook.lerpVectors(camAnim.l0, camAnim.l1, e);
+    if(k>=1){ const d=camAnim.done; camAnim=null; if(d) d(); }
+  }
+  const s = camAnim ? 0.25 : 1;                          // 运镜时轻微手持感，空闲时缓慢呼吸
+  camera.position.set(
+    menuCamPos.x + Math.sin(now*0.00016)*0.6*s,
+    menuCamPos.y + Math.sin(now*0.00023+1.3)*0.25*s,
+    menuCamPos.z);
+  camera.lookAt(menuCamLook.x, menuCamLook.y+(camAnim?0:Math.sin(now*0.00019)*0.15), menuCamLook.z);
+}
+
+/* ---------- 拨盘贴图 ---------- */
+function roundRectPath(g,x,y,w,h,r){
+  g.beginPath(); g.moveTo(x+r,y);
+  g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r);
+  g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath();
+}
+function dialTexture(s){
+  const cv=document.createElement('canvas'); cv.width=512; cv.height=300;
+  const g=cv.getContext('2d');
+  const grad=g.createLinearGradient(0,0,0,300);
+  grad.addColorStop(0,'#fffdf6'); grad.addColorStop(1,'#f3ebd4');
+  g.fillStyle=grad; roundRectPath(g,8,8,496,284,36); g.fill();
+  const tint='#'+s.tint.toString(16).padStart(6,'0');
+  g.lineWidth=8; g.strokeStyle=tint; roundRectPath(g,8,8,496,284,36); g.stroke();
+  g.lineWidth=2; g.strokeStyle='rgba(63,174,90,.32)'; roundRectPath(g,24,24,464,252,28); g.stroke();
+  g.textAlign='center'; g.textBaseline='middle';
+  g.font='84px serif'; g.fillText(s.icon,256,110);
+  g.fillStyle='#24523a'; g.font='bold 56px "Microsoft YaHei",sans-serif';
+  g.fillText(s.title,256,192);
+  g.fillStyle='#7d8a76'; g.font='30px "Microsoft YaHei",sans-serif';
+  g.fillText(s.sub,256,246);
+  const t=new THREE.CanvasTexture(cv); t.anisotropy=8; return t;
+}
+function softRadialTex(){
+  const cv=document.createElement('canvas'); cv.width=cv.height=256;
+  const g=cv.getContext('2d');
+  const gr=g.createRadialGradient(128,128,10,128,128,128);
+  gr.addColorStop(0,'rgba(255,255,255,.95)'); gr.addColorStop(.35,'rgba(255,255,255,.45)');
+  gr.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=gr; g.fillRect(0,0,256,256);
+  return new THREE.CanvasTexture(cv);
+}
+function cloudTex(){
+  const cv=document.createElement('canvas'); cv.width=256; cv.height=128;
+  const g=cv.getContext('2d');
+  [[70,80,46],[128,66,56],[186,84,42],[100,94,32],[160,98,30]].forEach(([x,y,r])=>{
+    const gr=g.createRadialGradient(x,y,r*.1,x,y,r);
+    gr.addColorStop(0,'rgba(255,255,255,.85)'); gr.addColorStop(1,'rgba(255,255,255,0)');
+    g.fillStyle=gr; g.beginPath(); g.arc(x,y,r,0,7); g.fill();
+  });
+  return new THREE.CanvasTexture(cv);
+}
+
+/* ---------- 构建拨盘 ---------- */
+function ensureDial(){
+  if(dialGroup) return;
+  dialGroup = new THREE.Group(); scene.add(dialGroup);
+  DIAL_SUBJECTS.forEach((s,i)=>{
+    const grp = new THREE.Group();
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1.9,1.11),
+      new THREE.MeshBasicMaterial({map:dialTexture(s), transparent:true}));
+    m.userData.i = i;
+    grp.add(m); grp.userData.ph = i*1.7;
+    dialGroup.add(grp); dialBtns.push(grp); dialMeshes.push(m);
+  });
+  dialGlow = new THREE.Mesh(new THREE.PlaneGeometry(3.4,3.4),
+    new THREE.MeshBasicMaterial({map:softRadialTex(), transparent:true, opacity:0,
+      blending:THREE.AdditiveBlending, depthWrite:false}));
+  dialGroup.add(dialGlow);
+  dialMark = new THREE.Mesh(new THREE.RingGeometry(.5,.64,44),
+    new THREE.MeshBasicMaterial({color:0x3fae5a, transparent:true, opacity:.6, side:THREE.DoubleSide}));
+  dialMark.rotation.x = -Math.PI/2; dialMark.position.y = .04; scene.add(dialMark);
+}
+
+/* ---------- 拨盘几何与交互 ---------- */
+function dialActiveIdx(){ return ((Math.round((Math.PI-dialAngle)/DIAL_STEP))%DIAL_N+DIAL_N)%DIAL_N; } // 身后(近处)卡位 a=π
+function dialNearest(){ return Math.round(dialAngle/DIAL_STEP)*DIAL_STEP; }
+function dialSlotFor(i){                                  // 把第 i 个按钮转到身后(近处)（取最近等效角）
+  const want = Math.PI - i*DIAL_STEP;                       // 把第 i 个按钮转到身后(近处)
+  return want + Math.round((dialAngle-want)/(Math.PI*2))*Math.PI*2;
+}
+const _ndc=new THREE.Vector2(), _ray=new THREE.Raycaster();
+function dialPick(x,y){
+  let px=x, py=y;
+  if(rot90()){ px=y; py=innerWidth-x; }                  // 手机旋转90度：屏幕坐标→逻辑渲染坐标
+  const v=viewSize();
+  _ndc.set(px/v.w*2-1, -(py/v.h*2-1));
+  _ray.setFromCamera(_ndc,camera);
+  const hits=_ray.intersectObjects(dialMeshes,false);
+  return hits.length ? hits[0].object.userData.i : null;
+}
+function dialSelect(i){
+  if(menuBusy||camAnim) return;
+  menuBusy=true; Sfx.click();
+  dialFlashT = performance.now()+700;                     // 选中按钮高亮弹跳
+  selGate = {i, t0:performance.now()};                    // 选中按钮随压低视角升起淡出（让开门扉）
+  camTween(DIP_POS, DIP_LOOK, 0.85, ()=>{                 // 先压低视角（从高到低，战士身后往前看）
+    setTimeout(()=>{
+      if(!document.getElementById('homeRadial')) return;  // 用户已切到其它面板则取消
+      DIAL_SUBJECTS[i].enter();
+      camTween(HIGH_POS, HIGH_LOOK, 1.5, ()=>{ menuBusy=false; });  // 选完缓慢抬升视角进入答题
+    }, 430);
+  });
+}
+canvas.addEventListener('pointerdown', e=>{
+  if(state!=='menu'||menuBusy||camAnim||!dialGroup) return;
+  dialDragging=true; dialPid=e.pointerId; dialMovedPx=0;
+  dialStartX=e.clientX; dialStartY=e.clientY; dialStartAngle=dialAngle; dialVel=0;
+  try{ canvas.setPointerCapture(e.pointerId); }catch(_){}
+});
+canvas.addEventListener('pointermove', e=>{
+  if(!dialDragging||e.pointerId!==dialPid) return;
+  const dx = rot90() ? (e.clientY-dialStartY) : (e.clientX-dialStartX);  // 旋转态用逻辑横向
+  dialMovedPx=Math.max(dialMovedPx,Math.abs(dx));
+  dialAngle = dialStartAngle - dx*0.011;                  // 拖动实时跟手，不回弹
+  dialTarget = dialAngle;
+});
+canvas.addEventListener('pointerup', e=>{
+  if(!dialDragging||e.pointerId!==dialPid) return;
+  dialDragging=false;
+  if(dialMovedPx<8){                                      // 视为点按：射线拾取
+    const hit=dialPick(e.clientX,e.clientY);
+    if(hit!=null){
+      if(hit===dialActiveIdx()) dialSelect(hit);           // 只有身后(近处)按钮可进入
+      else dialTarget=dialSlotFor(hit);                   // 点其它按钮先转到身后
+    }
+  } else {
+    dialTarget=dialNearest();                            // 松手吸附最近卡位
+  }
+});
+canvas.addEventListener('pointercancel', ()=>{ dialDragging=false; dialTarget=dialNearest(); });
+canvas.addEventListener('wheel', e=>{
+  if(state!=='menu'||menuBusy||camAnim||!dialGroup) return;
+  e.preventDefault();
+  dialTarget = dialNearest() + (e.deltaY>0?-1:1)*DIAL_STEP;
+},{passive:false});
+addEventListener('keydown', e=>{
+  if(state!=='menu'||menuBusy||camAnim||!dialGroup) return;
+  if(e.key==='ArrowLeft')  dialTarget = dialNearest()+DIAL_STEP;
+  if(e.key==='ArrowRight') dialTarget = dialNearest()-DIAL_STEP;
+});
+
+const _camDir=new THREE.Vector3();
+function updateDial(dt, now, t){
+  const show = state==='menu';
+  dialGroup.visible = show; dialMark.visible = show;
+  if(!show) return;
+  if(!dialDragging){                                      // 弹簧吸附（带一点回弹手感）
+    dialVel += (dialTarget-dialAngle)*dt*85;
+    dialVel *= Math.exp(-10.5*dt);
+    dialAngle += dialVel*dt;
+    if(Math.abs(dialAngle)>Math.PI*8){                    // 防角度无限累计
+      const s=Math.round(dialAngle/(Math.PI*2))*(Math.PI*2);
+      dialAngle-=s; dialTarget-=s; dialStartAngle-=s;
+    }
+  }
+  const act=dialActiveIdx();
+  const flash = now<dialFlashT ? (dialFlashT-now)/700 : 0;
+  const sel = selGate ? Math.min(1,Math.max(0,(now-selGate.t0)/650)) : 0;  // 选中按钮升起淡出进度
+  dialBtns.forEach((grp,i)=>{
+    const a = dialAngle + i*DIAL_STEP;                    // a=π 为身后(近处)卡位
+    grp.position.set(Math.sin(a)*DIAL_R, 0, DIAL_CZ - Math.cos(a)*DIAL_R);
+    grp.position.y = 1.52 + Math.sin(t*1.6+grp.userData.ph)*0.075 + (i===act?0.1:0) + (selGate&&selGate.i===i ? sel*2.4 : 0);
+    grp.lookAt(camera.position.x, camera.position.y*0.6+grp.position.y*0.4, camera.position.z);
+    grp.scale.setScalar(i===act ? 1.1+Math.sin(t*3.1)*0.028+flash*0.22 : 0.92);
+    dialMeshes[i].material.opacity = (selGate&&selGate.i===i) ? 1-sel : 1;
+  });
+  const ab=dialBtns[act], ap=ab.position;                 // 身后(近处)当前按钮的辉光与地面标记
+  _camDir.subVectors(camera.position, ap).normalize();
+  dialGlow.position.copy(ap).addScaledVector(_camDir, 0.09);
+  dialGlow.lookAt(camera.position);
+  dialGlow.scale.setScalar(1.5 + flash*0.5);
+  dialGlow.material.color.setHex(DIAL_SUBJECTS[act].tint);
+  dialGlow.material.opacity = (0.42 + Math.sin(t*3.4)*0.16 + flash*0.5) * (1-sel);
+  dialMark.position.set(ap.x, 0.04, ap.z);
+  dialMark.material.color.setHex(DIAL_SUBJECTS[act].tint);
+  dialMark.material.opacity = 0.5 + Math.sin(t*2.7)*0.22 + flash*0.4;
+  dialMark.scale.setScalar(1 + flash*0.8);
+}
+
+/* ---------- 落日→月升 环境（60 秒循环，光遇风；主菜单与游戏全程播放） ---------- */
+const DAY_MS = 60000;
+let dayT0 = performance.now();       // 相位基准：进入游戏时重置=从落日开始
+const skyU = { top:{value:new THREE.Color(0x8a6f9e)}, bot:{value:new THREE.Color(0xffc98f)} };
+const skyDome = new THREE.Mesh(new THREE.SphereGeometry(70,24,14), new THREE.ShaderMaterial({
+  uniforms:skyU, side:THREE.BackSide, depthWrite:false, fog:false,
+  vertexShader:'varying vec3 vP;void main(){vP=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+  fragmentShader:'varying vec3 vP;uniform vec3 top;uniform vec3 bot;void main(){float h=clamp(vP.y/70.,-1.,1.);float k=smoothstep(-0.12,0.5,h);gl_FragColor=vec4(mix(bot,top,k),1.);}'
+}));
+skyDome.renderOrder=-10; skyDome.visible=true; scene.add(skyDome);
+const _softTex = softRadialTex();
+const sunGrp = new THREE.Group();
+const sunBall = new THREE.Mesh(new THREE.SphereGeometry(2.4,20,14), new THREE.MeshBasicMaterial({color:0xffdf9e, fog:false}));
+const sunHalo = new THREE.Sprite(new THREE.SpriteMaterial({map:_softTex, color:0xff9d5c, transparent:true, opacity:.9, fog:false, depthWrite:false, blending:THREE.AdditiveBlending}));
+sunHalo.scale.setScalar(21); sunGrp.add(sunBall); sunGrp.add(sunHalo);
+sunGrp.visible=false; scene.add(sunGrp);
+const moonGrp = new THREE.Group();
+const moonBall = new THREE.Mesh(new THREE.SphereGeometry(1.7,20,14), new THREE.MeshBasicMaterial({color:0xeef2ff, fog:false}));
+const moonHalo = new THREE.Sprite(new THREE.SpriteMaterial({map:_softTex, color:0x9fb4ff, transparent:true, opacity:.8, fog:false, depthWrite:false, blending:THREE.AdditiveBlending}));
+moonHalo.scale.setScalar(13); moonGrp.add(moonBall); moonGrp.add(moonHalo);
+moonGrp.visible=false; scene.add(moonGrp);
+const _cloudT = cloudTex();
+const clouds = [];
+for(let i=0;i<9;i++){
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:_cloudT, transparent:true,
+    opacity:.3+Math.random()*.28, fog:false, depthWrite:false}));
+  const s = 11+Math.random()*17; sp.scale.set(s, s*.4, 1);
+  sp.position.set(-44+Math.random()*88, 4.5+Math.random()*11, -33-Math.random()*12);
+  scene.add(sp);
+  clouds.push({sp, spd:(.2+Math.random()*.35)*(Math.random()<.5?-1:1)});
+}
+const _CC=(h)=>new THREE.Color(h);
+const PAL = {
+  skyTop:[[0,_CC(0x8a6f9e)],[.2,_CC(0x6f5f9a)],[.42,_CC(0x3c3a70)],[.6,_CC(0x232a52)],[.85,_CC(0x1d2448)],[.97,_CC(0x4a3f70)],[1,_CC(0x8a6f9e)]],
+  skyBot:[[0,_CC(0xffc98f)],[.18,_CC(0xff9d76)],[.42,_CC(0xc4738f)],[.58,_CC(0x3a3f75)],[.85,_CC(0x272e58)],[.97,_CC(0x6e527e)],[1,_CC(0xffc98f)]],
+  dirC:  [[0,_CC(0xffd9a8)],[.42,_CC(0xb78ab0)],[.58,_CC(0x8a93c9)],[.9,_CC(0x7d8fd9)],[1,_CC(0xffd9a8)]],
+  mount: [[0,_CC(0xc98d78)],[.2,_CC(0xb07a86)],[.42,_CC(0x6e5a86)],[.6,_CC(0x3a3f66)],[.85,_CC(0x333a5e)],[1,_CC(0xc98d78)]],
+  part:  [[0,_CC(0xffd9a8)],[.5,_CC(0xc9a0c9)],[.78,_CC(0x9fb8ff)],[1,_CC(0xffd9a8)]],
+  hemiS: [[0,_CC(0xffe7c2)],[.45,_CC(0x8f86b8)],[.6,_CC(0x5a5f96)],[.9,_CC(0x565f9e)],[1,_CC(0xffe7c2)]],
+  hemiG: [[0,_CC(0xd8b08a)],[.45,_CC(0x6a5a7a)],[.6,_CC(0x333a5e)],[.9,_CC(0x383f66)],[1,_CC(0xd8b08a)]],
+};
+const NUM = {
+  dirI:[[0,1.15],[.42,.5],[.58,.22],[.92,.25],[1,1.15]],
+  ambI:[[0,.3],[.5,.16],[.85,.2],[1,.3]],
+  star:[[0,.12],[.35,.3],[.55,.9],[.86,.9],[.97,.25],[1,.12]],
+  hemiI:[[0,1.0],[.5,.55],[.8,.6],[1,1.0]],
+};
+function palLerp(stops,p,out){
+  if(p<=stops[0][0]) return out.copy(stops[0][1]);
+  for(let i=0;i<stops.length-1;i++){
+    const t0=stops[i][0], t1=stops[i+1][0];
+    if(p>=t0&&p<=t1) return out.copy(stops[i][1]).lerp(stops[i+1][1], (p-t0)/((t1-t0)||1));
+  }
+  return out.copy(stops[stops.length-1][1]);
+}
+function numLerp(stops,p){
+  if(p<=stops[0][0]) return stops[0][1];
+  for(let i=0;i<stops.length-1;i++){
+    const t0=stops[i][0], t1=stops[i+1][0];
+    if(p>=t0&&p<=t1) return stops[i][1]+(stops[i+1][1]-stops[i][1])*(p-t0)/((t1-t0)||1);
+  }
+  return stops[stops.length-1][1];
+}
+function updateDayNight(now,dt){
+  const p=(((now-dayT0)%DAY_MS)+DAY_MS)%DAY_MS/DAY_MS;
+  palLerp(PAL.skyTop,p,skyU.top.value); palLerp(PAL.skyBot,p,skyU.bot.value);
+  hemi.color.copy(palLerp(PAL.hemiS,p,_tmpC1)); hemi.groundColor.copy(palLerp(PAL.hemiG,p,_tmpC2));
+  hemi.intensity=numLerp(NUM.hemiI,p);
+  dir.color.copy(palLerp(PAL.dirC,p,_tmpC1)); dir.intensity=numLerp(NUM.dirI,p);
+  amb.intensity=numLerp(NUM.ambI,p);
+  scene.fog.color.copy(palLerp(PAL.skyBot,p,_tmpC1)).lerp(palLerp(PAL.skyTop,p,_tmpC2),.35);
+  starMat.opacity=numLerp(NUM.star,p);
+  pMat.color.copy(palLerp(PAL.part,p,_tmpC1));
+  const mc=palLerp(PAL.mount,p,_tmpC1);
+  mounts.forEach(m=>m.material.color.copy(mc));
+  if(p<0.46){                                             // 落日：缓缓沉入山后
+    const k=p/0.46;
+    sunGrp.visible=true;
+    sunGrp.position.set(-18+31*k, 8-12.5*k, -44);
+    sunHalo.material.opacity=.9*Math.max(0,Math.min(1,(sunGrp.position.y+2.5)/7));
+  } else sunGrp.visible=false;
+  if(p>=0.5&&p<0.99){                                    // 月亮：升起→中天→落下
+    const y = p<0.74 ? -3+((p-0.5)/0.24)*15 : 12-((p-0.74)/0.23)*15.5;
+    moonGrp.visible=true;
+    moonGrp.position.set(-9+20*((p-0.5)/0.49), y, -44);
+    moonHalo.material.opacity=.85*Math.max(0,Math.min(1,(y+2.5)/6));
+  } else moonGrp.visible=false;
+  const cc=palLerp(PAL.skyBot,p,_tmpC1).lerp(_white,.45); // 云随天色染色并缓慢漂移
+  clouds.forEach(c=>{
+    c.sp.position.x += c.spd*dt;
+    if(c.sp.position.x>48) c.sp.position.x=-48;
+    if(c.sp.position.x<-48) c.sp.position.x=48;
+    c.sp.material.color.copy(cc);
+  });
+}
+/* ---------- 主菜单每帧更新（昼夜循环在 animate 全局驱动，游戏内同样生效） ---------- */
+function updateMenu3D(dt, now, t){
+  const menuish = state==='menu'||state==='subject'||state==='chapter'||state==='wrongbook';
+  if(!menuish){
+    if(dialGroup){ dialGroup.visible=false; }
+    if(dialMark){ dialMark.visible=false; }
+    if(heroGroup.rotation.y!==0) heroGroup.rotation.y=0;
+    return;
+  }
+  heroGroup.rotation.y=Math.PI;                            // 菜单态战士面向屏幕深处（背对镜头、面向身前按钮）
+  updateMenuCam(now);
+  updateDial(dt,now,t);
+}
+
 /* ============ UI 渲染 ============ */
 const ui = document.getElementById('ui');
 function el(html){ const d=document.createElement('div'); d.innerHTML=html; return d.firstElementChild; }
+// ---------- 数学公式渲染工具 ----------
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// 把字符串里 $...$ 或 \(...\) 的公式用 KaTeX 渲染为 HTML，其余文本转义；返回安全 HTML
+function renderMath(s){
+  s = (s===undefined||s===null)?'':String(s);
+  const re=/\$(?!\$)\s*([\s\S]+?)\s*\$(?!\$)|\\\((.*?)\\\)/g;
+  let out='', last=0, m;
+  while((m=re.exec(s))!==null){
+    out+=esc(s.slice(last,m.index));
+    const tex=(m[1]!=null?m[1]:m[2]||'').trim();
+    out+= window.katex ? katex.renderToString(tex,{throwOnError:false,displayMode:false}) : esc(tex);
+    last=m.index+m[0].length;
+  }
+  out+=esc(s.slice(last));
+  return out;
+}
 function showState(){
   ui.innerHTML='';
+  if(state==='victory'||state==='failcg') return;   // 结算面板已自行渲染
   if(state==='menu') return showMenu();
+  if(state==='chapter') return showChapterMenu(level);
   if(state==='question') return showQuestion();
   if(state==='upgrade') return showUpgrade();
   if(state==='battle') return showBattle();
 }
+/* ============ 错题本（本地保存） ============ */
+const WRONGBOOK_KEY='yongzhe_wrongbook_v1';
+function loadWrongBook(){ try{ return JSON.parse(localStorage.getItem(WRONGBOOK_KEY))||[]; }catch(e){ return []; } }
+function saveWrongBook(wb){ try{ localStorage.setItem(WRONGBOOK_KEY, JSON.stringify(wb)); }catch(e){} }
+function addWrongBook(q, chosenTxt, ansTxt){
+  if(gameType==='english' || !q || !q.q) return;   // 只记录数学/物理/政治
+  const sec = QBank()[level] && QBank()[level][P.round];
+  if(!sec || !sec.name) return;
+  const wb = loadWrongBook();
+  const key = gameType+'|'+level+'|'+sec.name+'|'+q.q;
+  const ex = wb.find(x=>x.key===key);
+  if(ex){ ex.count++; ex.t=Date.now(); }
+  else wb.unshift({key, t:Date.now(), sub:subjectTitle(), book:level, sec:sec.name,
+                   q:q.q, chosen:chosenTxt||'（未选）', ans:ansTxt||'', why:q.why||'', count:1});
+  if(wb.length>200) wb.length=200;                 // 最多保留200条
+  saveWrongBook(wb);
+}
+function addWrongBookEn(en, zh, showEn, chosenTxt, ansTxt){
+  const wb = loadWrongBook();
+  const q = showEn ? '指译：“'+en+'”' : '译回：“'+zh+'”';
+  const key = 'english|'+level+'|'+en+'|'+zh;
+  const ex = wb.find(x=>x.key===key);
+  if(ex){ ex.count++; ex.t=Date.now(); }
+  else wb.unshift({key, t:Date.now(), sub:'词汇', book:level, sec:'词汇闯关',
+                   q:q, chosen:chosenTxt||'（未选）', ans:ansTxt||'', why:'', count:1});
+  if(wb.length>200) wb.length=200;
+  saveWrongBook(wb);
+}
+function clearWrongBook(){ saveWrongBook([]); }
+function showWrongBook(){
+  state='wrongbook';
+  const wb = loadWrongBook();
+  ui.innerHTML=`
+    <div class="panel wide">
+      <div class="sub">← <a href="#" id="wbBack">返回首页</a></div>
+      <h1 class="title">📒 错题本</h1>
+      <div class="sub">共 ${wb.length} 条 · 已保存在本地浏览器</div>
+      ${wb.length?`<div class="btn-row" style="margin:6px 0 4px"><button class="mini-btn" id="wbClear">🗑 清空错题本</button></div>`:''}
+      <div id="wbList" class="wb-list" style="max-height:60vh;overflow:auto;text-align:left">
+        ${wb.length? wb.map(w=>`
+          <div class="wb-item" style="background:#fdf6e3;border:1px solid #e8d9b8;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:13px">
+            <div class="wb-meta" style="font-size:11px;color:#8a6d3b">${w.sub} · ${w.book} · ${w.sec} · 错${w.count}次 · ${new Date(w.t).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+            <div class="wb-q" style="margin:4px 0">${renderMath(w.q)}</div>
+            <div class="wb-ans" style="color:#c0392b">❌ 我的答案：${renderMath(w.chosen)}</div>
+            <div class="wb-ok" style="color:#1e7e46">✅ 正确答案：${renderMath(w.ans)}</div>
+            ${w.why?`<div class="wb-why" style="opacity:.85">💡 ${renderMath(w.why)}</div>`:''}
+          </div>`).join('') : `<div class="empty" style="padding:30px 0;color:#8a8a8a">暂无错题，继续保持！🎉</div>`}
+      </div>
+    </div>`;
+  ui.querySelector('#wbBack').onclick=()=>showMenu();
+  const clr=ui.querySelector('#wbClear');
+  if(clr) clr.onclick=()=>{ clearWrongBook(); Sfx.click(); showWrongBook(); };
+}
 function showMenu(){
+  state='menu';                     // 修复：从科目/结算/章节返回时拨盘不消失
+  heroGroup.rotation.set(0,0,0);        // 从失败CG返回时扶正战士
+  heroGroup.position.set(0,0.7,HERO_Z);
+  const cb = cardBonus();
+  ui.innerHTML = `
+    <div class="home">
+      <div class="home-top">
+        <div class="logo-wrap" style="width:56px;height:56px;margin:0 auto 2px">
+          <svg viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="48" cy="48" r="44" fill="#fdfaf1" stroke="#3fae5a" stroke-width="5"/>
+            <circle cx="48" cy="48" r="36" fill="none" stroke="#d48806" stroke-width="2" stroke-dasharray="4 3"/>
+            <path d="M48 16 L54 28 L54 50 L48 56 L42 50 L42 28 Z" fill="#ffd27a" stroke="#d48806" stroke-width="2.5" stroke-linejoin="round"/>
+            <rect x="44.5" y="56" width="7" height="14" rx="3" fill="#6b4a2f"/>
+            <path d="M48 6 l2 4 4 2 -4 2 -2 4 -2 -4 -4 -2 4 -2 Z" fill="#d48806"/>
+          </svg>
+        </div>
+        <h1 class="title">勇者之路</h1>
+        <div class="sub" style="margin-bottom:6px">词汇 · 数学 · 政治 · 物理 · 答题闯关冒险</div>
+        <div class="pf-bar">
+          <span>🧙 <b>Lv.${PF.lv}</b></span>
+          <span class="xp-wrap">✨<span class="xpbar"><i style="width:${PF.lv>=MAX_LV?100:Math.min(100,PF.xp/xpNeed()*100)}%"></i></span><small>${PF.lv>=MAX_LV?'MAX':PF.xp+'/'+xpNeed()}</small></span>
+          <span>🪙 <b class="coins">${PF.coins}</b></span>
+          <span>🎴 ${ownedCardCount()}/${CARDS.length}</span>
+        </div>
+        <div class="bonus-row">
+          <span class="bonus-chip">⚔ 攻击 +${Math.round(heroBonus().atk*100-100)}%</span>
+          <span class="bonus-chip">❤ 生命 +${heroBonus().hp}</span>
+          <span class="bonus-chip">💥 暴击 ${Math.round(heroBonus().crit*100)}%</span>
+        </div>
+      </div>
+      <div class="home-radial" id="homeRadial"></div>
+      <div class="home-mini">
+        <button class="mini-btn" id="btnCards">🎴 卡牌图鉴</button>
+        <button class="mini-btn" id="btnAch">🏆 成就</button>
+        <button class="mini-btn" id="btnGacha">🎰 抽卡屋</button>
+        <button class="mini-btn" id="btnWb">📒 错题本${loadWrongBook().length?` (${loadWrongBook().length})`:''}</button>
+      </div>
+    </div>`;
+  ui.querySelector('#btnCards').onclick=()=>{ Sfx.click(); showCardsPanel(); };
+  ui.querySelector('#btnAch').onclick=()=>{ Sfx.click(); showAchPanel(); };
+  ui.querySelector('#btnGacha').onclick=()=>{ Sfx.click(); showGachaPanel(); };
+  ui.querySelector('#btnWb').onclick=()=>{ Sfx.click(); showWrongBook(); };
+
+  // ---- 3D 环绕拨盘：Three.js 渲染（近大远小层叠），交互在 canvas 指针事件里 ----
+  ensureDial();
+  dialDragging=false; dialVel=0; menuBusy=false; selGate=null;
+  if(!camAnim){
+    if(camera.position.y>1 && camera.position.distanceTo(HIGH_POS)>0.5) camTween(HIGH_POS, HIGH_LOOK, 1.15);
+    else { menuCamPos.copy(HIGH_POS); menuCamLook.copy(HIGH_LOOK); }
+  }
+}
+/* ============ 卡牌图鉴 / 成就 / 抽卡屋 三个面板 ============ */
+function panelBack(){
+  return `<div class="sub" style="text-align:center;color:#8c8c7e;margin-bottom:4px">← <a href="#" id="backMenu" style="color:#3fae5a">返回主菜单</a></div>`;
+}
+function showCardsPanel(){
+  state='menu';
+  const subs = SUB_ORDER.filter(s=>CARDS.some(c=>c.sub===s));
+  const owned = ownedCardCount();
+  const cb = cardBonus();
+  const bonusTxt = [
+    cb.atk?`⚔ 攻击 +${Math.round(cb.atk*100)}%`:'',
+    cb.hp?`❤ 生命 +${cb.hp}`:'',
+    cb.crit?`💥 暴击 +${Math.round(cb.crit*100)}%`:'',
+    cb.coin?`🪙 金币 +${Math.round(cb.coin*100)}%`:''
+  ].filter(Boolean).join(' · ') || '暂无加成，去抽卡/闯关收集吧！';
+  ui.innerHTML=`
+    <div class="panel wide">
+      ${panelBack()}
+      <h1 class="title" style="font-size:22px">🎴 卡牌图鉴</h1>
+      <div class="sub" style="text-align:center">已收集 <b>${owned}</b>/${CARDS.length} · ${bonusTxt}</div>
+      <div id="cardBody"></div>
+    </div>`;
+  ui.querySelector('#backMenu').onclick=(e)=>{ e.preventDefault(); Sfx.click(); showMenu(); };
+  const body=ui.querySelector('#cardBody');
+  subs.forEach(sub=>{
+    const list = CARDS.filter(c=>c.sub===sub);
+    const got = list.filter(c=>PF.cards[c.id]).length;
+    const g = el(`<div class="ch-group"><div class="ch-head"><span class="ch-tag">${CARD_SUB_SHORT[sub]||sub}</span>
+      <span>卡牌集</span><span class="ch-info">${got}/${list.length}</span></div></div>`);
+    const grid = el('<div class="card-grid"></div>');
+    list.forEach(c=>{
+      const n = PF.cards[c.id]||0;
+      const card = el(`<div class="card-item rar-${c.rar} ${n?'':'unk'}">
+        ${n>1?`<span class="cnt">×${n}</span>`:''}
+        <div class="ce">${c.emoji}</div>
+        <div class="cn">${n?c.name:'？？？'}</div>
+        <div class="cd">${n?c.desc:'尚未获得'}</div>
+        <span class="rar-tag">${RAR_NAMES[c.rar]}</span>
+      </div>`);
+      grid.appendChild(card);
+    });
+    g.appendChild(grid);
+    body.appendChild(g);
+  });
+}
+function showAchPanel(){
+  state='menu';
+  const got = ACHS.filter(a=>PF.achs[a.id]).length;
+  const starSum = Object.values(PF.stars).reduce((a,b)=>a+b,0);
+  ui.innerHTML=`
+    <div class="panel wide">
+      ${panelBack()}
+      <h1 class="title" style="font-size:22px">🏆 成就殿堂</h1>
+      <div class="sub" style="text-align:center">已解锁 <b>${got}</b>/${ACHS.length} · ⭐累计 ${starSum} 星 · 🐉BOSS击杀 ${PF.stats.bossKills} · 🔥最高连击 ${PF.stats.maxCombo}</div>
+      <div id="achBody"></div>
+    </div>`;
+  ui.querySelector('#backMenu').onclick=(e)=>{ e.preventDefault(); Sfx.click(); showMenu(); };
+  const body=ui.querySelector('#achBody');
+  ACHS.forEach(a=>{
+    const has = !!PF.achs[a.id];
+    body.appendChild(el(`<div class="ach-item ${has?'got':''}">
+      <span class="ai">${a.ic}</span>
+      <div><div class="an">${a.name}</div><div class="ad">${a.desc}</div></div>
+      <span class="as">${has?'✅':'🔒'}</span>
+    </div>`));
+  });
+}
+/* 抽卡屋：100金币/次，重复卡自动转金币 */
+function showGachaPanel(result){
+  state='menu';
+  const COST = 100;
+  const can = PF.coins >= COST;
+  let stageHTML;
+  if(result){
+    const c=result.card;
+    stageHTML = `<div class="gacha-card rar${c.rar}r"><span class="ge">${c.emoji}</span>
+      <div>${c.name}</div><div style="font-size:11px;font-weight:600">${RAR_NAMES[c.rar]}</div>
+      <div style="font-size:11px;font-weight:600">${c.desc}</div>
+      ${result.dup?`<div class="dup-tag">重复 → +${result.dupGold} 🪙</div>`:''}</div>`;
+  }else{
+    stageHTML = `<div style="font-size:52px;filter:drop-shadow(0 6px 14px rgba(212,136,6,.4))">🎴</div>
+      <div class="sub">消耗 ${COST} 🪙 抽取一张卡牌<br><small>普通70% · 精英25% · 传说5%</small></div>`;
+  }
+  ui.innerHTML=`
+    <div class="panel">
+      ${panelBack()}
+      <h1 class="title" style="font-size:22px">🎰 抽卡屋</h1>
+      <div class="sub">🪙 当前金币：<b class="coins" style="color:#c07800">${PF.coins}</b> · 图鉴 ${ownedCardCount()}/${CARDS.length}</div>
+      <div class="gacha-stage">${stageHTML}</div>
+      <div class="btn-row">
+        <button class="btn-main" id="gPull" ${can?'':'style="opacity:.45"'}>🎰 抽一张（${COST} 🪙）</button>
+      </div>
+      ${!can?'<div class="sub" style="color:#c07800">金币不足：去通关小节、击败BOSS赚金币吧！</div>':''}
+    </div>`;
+  ui.querySelector('#backMenu').onclick=(e)=>{ e.preventDefault(); Sfx.click(); showMenu(); };
+  ui.querySelector('#gPull').onclick=()=>{
+    if(PF.coins < COST){ Sfx.wrong(); return; }
+    PF.coins -= COST; PF.gacha++;
+    saveProfile(); checkAchs();
+    Sfx.upgrade();
+    const c = rollCard();
+    const r = grantCard(c.id, true);
+    showGachaPanel(r);
+  };
+}
+/* 主题下的科目/等级选择 */
+let schoolStage = null;           // 当前学段：小学/初中/高中/大学
+function collegeKeys(){
+  return gameType==='math' ? ['高等数学','线性代数','概率论与数理统计']
+    : gameType==='physics' ? ['力学','热学','电磁学','波动光学','近代物理','实验与前沿']
+    : ['马克思主义基本原理','习近平新时代中国特色社会主义思想概论','毛泽东思想和中国特色社会主义理论体系概论','中国近现代史纲要','思想道德与法治'];
+}
+function subjectTitle(){
+  return gameType==='math' ? '🧮 数学' : (gameType==='physics' ? '⚛️ 物理' : '📕 政治');
+}
+function showSubjectMenu(){
+  const isEn = gameType==='english';
+  if(isEn){                        // 英语：等级选择（原逻辑）
+    const order = ["小学","初中","高中","四级","六级"];
+    ui.innerHTML = `
+      <div class="panel">
+        <div class="sub" style="color:#8c8c7e;margin-bottom:4px">← <a href="#" id="backHome" style="color:#3fae5a">返回首页</a></div>
+        <h1 class="title" style="font-size:22px">🎮 英语词汇</h1>
+        <div class="sub">请选择难度等级</div>
+        <div class="grid-2" id="lvlGrid"></div>
+      </div>`;
+    ui.querySelector('#backHome').onclick=(e)=>{ e.preventDefault(); Sfx.click(); showMenu(); };
+    const grid=ui.querySelector('#lvlGrid');
+    order.forEach(k=>{
+      const n=(DATA[k]?DATA[k].length:0);
+      const b=el(`<button class="lvl-btn"><b>${k}</b><small>${n} 词 · 闯关挑战</small></button>`);
+      b.onclick=()=>startRun(k);
+      grid.appendChild(b);
+    });
+    return;
+  }
+  // 数学/物理/政治：学段选择（小学/初中/高中/大学）
+  state='subject';
   ui.innerHTML = `
     <div class="panel">
-      <div class="logo-wrap">
-        <svg viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="48" cy="48" r="44" fill="#fdfaf1" stroke="#3fae5a" stroke-width="5"/>
-          <circle cx="48" cy="48" r="36" fill="none" stroke="#d48806" stroke-width="2" stroke-dasharray="4 3"/>
-          <path d="M26 62 Q40 56 48 62 Q56 56 70 62 L70 50 Q56 44 48 50 Q40 44 26 50 Z" fill="#7cc97f" stroke="#2e8b57" stroke-width="2.5" stroke-linejoin="round"/>
-          <path d="M48 14 L54 26 L54 52 L48 58 L42 52 L42 26 Z" fill="#ffd27a" stroke="#d48806" stroke-width="2.5" stroke-linejoin="round"/>
-          <rect x="34" y="52" width="28" height="6" rx="3" fill="#d48806"/>
-          <rect x="44.5" y="58" width="7" height="14" rx="3" fill="#6b4a2f"/>
-          <circle cx="48" cy="74" r="4.5" fill="#ffd27a" stroke="#d48806" stroke-width="2"/>
-          <path d="M48 5 l2 4 4 2 -4 2 -2 4 -2 -4 -4 -2 4 -2 Z" fill="#d48806"/>
-        </svg>
-      </div>
-      <h1 class="title">词汇勇者</h1>
-      <button class="load-btn" id="loadBtn">🎮 我的存档（可续玩或新游戏）</button>
+      <div class="sub" style="color:#8c8c7e;margin-bottom:4px">← <a href="#" id="backHome" style="color:#3fae5a">返回首页</a></div>
+      <h1 class="title" style="font-size:22px">${subjectTitle()}</h1>
+      <div class="sub">请选择学段</div>
       <div class="grid-2" id="lvlGrid"></div>
     </div>`;
-  ui.querySelector('#loadBtn').onclick=()=>{ Sfx.click(); openLoadOverlay(); };
+  ui.querySelector('#backHome').onclick=(e)=>{ e.preventDefault(); Sfx.click(); showMenu(); };
   const grid=ui.querySelector('#lvlGrid');
-  const order=["小学","初中","高中","四级","六级"];
-  order.forEach(k=>{
-    const c=CONFIG[k];
-    const b=el(`<button class="lvl-btn"><b>${k}</b><small>词汇 ${DATA[k].length} 词</small></button>`);
-    b.onclick=()=>startRun(k);
+  const sb = schoolObj();
+  const stages = ['小学','初中','高中','大学'].filter(st => st==='大学' || (sb[st] && sb[st].length));  // 物理已无小学
+  stages.forEach(st=>{
+    let info;
+    if(st==='大学'){
+      const keys = collegeKeys();
+      const secN = keys.reduce((n,k)=>n+(QBank()[k]||[]).length,0);
+      info = `${keys.length} 科目 · ${secN} 节`;
+    }else{
+      const books = sb[st]||[];
+      const secN = books.reduce((n,b)=>n+(b.secs||[]).length,0);
+      const qn = books.reduce((n,b)=>n+(b.secs||[]).reduce((m,s)=>m+(s.qs?s.qs.length:0),0),0);
+      info = `${books.length} 册 · ${secN} 节 · ${qn} 题`;
+    }
+    const b=el(`<button class="lvl-btn"><b>${st}</b><small>${info}</small></button>`);
+    b.onclick=()=>{ Sfx.click(); if(st==='大学') showCollegeMenu(); else showBookMenu(st); };
     grid.appendChild(b);
   });
 }
-function startRun(k){
-  level=k; P={weapon:1,maxHp:HERO_MAX_HP,hp:HERO_MAX_HP,score:0,round:0,correct:0,wrong:0,stage1Time:null};
-  usedWords.clear(); state='question';
+/* 小初高：册选择（学段 → 册 → 节） */
+function showBookMenu(stage){
+  schoolStage = stage;
+  state='subject';
+  const sb = schoolObj();
+  const books = sb[stage]||[];
+  ui.innerHTML = `
+    <div class="panel">
+      <div class="sub" style="color:#8c8c7e;margin-bottom:4px">← <a href="#" id="backSub" style="color:#3fae5a">返回学段选择</a></div>
+      <h1 class="title" style="font-size:22px">${subjectTitle()} · ${stage}</h1>
+      <div class="sub">请选择册（教材分册）</div>
+      <div class="grid-2" id="lvlGrid"></div>
+    </div>`;
+  ui.querySelector('#backSub').onclick=(e)=>{ e.preventDefault(); Sfx.click(); showSubjectMenu(); };
+  const grid=ui.querySelector('#lvlGrid');
+  books.forEach(b=>{
+    const arr=b.secs||[];
+    const qn=arr.reduce((n,sec)=>n+(sec.qs?sec.qs.length:0),0);
+    const done=arr.filter((s,i)=>PF.stars[secKey(b.name,i)]).length;
+    const starSum=arr.reduce((n,s,i)=>n+(PF.stars[secKey(b.name,i)]||0),0);
+    const bb=el(`<button class="lvl-btn"><b>${b.name}</b><small>${arr.length} 节 · ${qn} 题 · ★${starSum}/${arr.length*3}（已通 ${done}）</small></button>`);
+    bb.onclick=()=>{ Sfx.click(); showChapterMenu(b.name); };
+    grid.appendChild(bb);
+  });
+}
+/* 大学：科目选择 */
+function showCollegeMenu(){
+  schoolStage = '大学';
+  state='subject';
+  ui.innerHTML = `
+    <div class="panel">
+      <div class="sub" style="color:#8c8c7e;margin-bottom:4px">← <a href="#" id="backSub" style="color:#3fae5a">返回学段选择</a></div>
+      <h1 class="title" style="font-size:22px">${subjectTitle()} · 大学</h1>
+      <div class="sub">请选择学科与章节</div>
+      <div class="grid-2" id="lvlGrid"></div>
+    </div>`;
+  ui.querySelector('#backSub').onclick=(e)=>{ e.preventDefault(); Sfx.click(); showSubjectMenu(); };
+  const grid=ui.querySelector('#lvlGrid');
+  collegeKeys().forEach(k=>{
+    const arr=QBank()[k]||[];
+    const qn=arr.reduce((n,sec)=>n+(sec.qs?sec.qs.length:0),0);
+    const done=arr.filter((s,i)=>PF.stars[secKey(k,i)]).length;
+    const starSum=arr.reduce((n,s,i)=>n+(PF.stars[secKey(k,i)]||0),0);
+    const b=el(`<button class="lvl-btn"><b>${k}</b><small>${arr.length} 节 · ${qn} 题 · ★${starSum}/${arr.length*3}（已通 ${done}）</small></button>`);
+    b.onclick=()=>{ Sfx.click(); showChapterMenu(k); };
+    grid.appendChild(b);
+  });
+}
+/* 数学/政治：章节/小节选择（按章分组，显示星级，可自由选择） */
+function showChapterMenu(subject){
+  level = subject;                 // 章节菜单期间记录当前科目
+  state = 'chapter';
+  const arr = QBank()[subject]||[];
+  // 按章号分组（节名形如 "1.1 映射与函数"，"0.x" 为导论）
+  const groups = new Map();
+  arr.forEach((sec, idx)=>{
+    const mm = /^(\d+)/.exec(sec.name);
+    const chNo = mm ? parseInt(mm[1],10) : Math.floor(idx/10)+1;
+    if(!groups.has(chNo)) groups.set(chNo, []);
+    groups.get(chNo).push({sec, idx});
+  });
+  let html = `
+    <div class="panel wide">
+      <div class="sub" style="text-align:center;color:#8c8c7e;margin-bottom:4px">← <a href="#" id="backSub" style="color:#3fae5a">返回学科选择</a></div>
+      <h1 class="title" style="font-size:22px">${modeIcon()} ${subject}</h1>
+      <div class="sub" style="text-align:center">选择小节开始闯关 · 完成可获 ⭐金币 ✨经验 🎴卡牌</div>
+      <div id="chGroups"></div>
+    </div>`;
+  ui.innerHTML = html;
+  ui.querySelector('#backSub').onclick=(e)=>{ e.preventDefault(); Sfx.click();
+    if(schoolStage==='大学') showCollegeMenu();
+    else if(schoolStage) showBookMenu(schoolStage);
+    else showSubjectMenu();
+  };
+  const wrap = ui.querySelector('#chGroups');
+  // 解锁规则：每个科目的第 1 节始终解锁；其余按"前 2 节至少有星"解锁（复习自由 + 轻推主线）
+  const isUnlocked = (idx)=>{
+    if(idx===0) return true;
+    const prev1 = PF.stars[secKey(subject, idx-1)];
+    const prev2 = idx>=2 ? PF.stars[secKey(subject, idx-2)] : true;
+    return !!(prev1 || prev2);
+  };
+  for(const [chNo, items] of groups){
+    const g = el(`<div class="ch-group"></div>`);
+    const doneN = items.filter(it=>PF.stars[secKey(subject,it.idx)]).length;
+    const starN = items.reduce((n,it)=>n+(PF.stars[secKey(subject,it.idx)]||0),0);
+    const chTopic = items[0].sec.name.replace(/^[\d.]+\s*/,'');
+    g.innerHTML = `<div class="ch-head"><span class="ch-tag">${chNo===0?'导论':'第 '+chNo+' 章'}</span>
+      <span>${chTopic}</span>
+      <span class="ch-info">★${starN}/${items.length*3} · 已通 ${doneN}/${items.length}</span></div>`;
+    const grid2 = el('<div class="sec-grid"></div>');
+    items.forEach(({sec, idx})=>{
+      const stars = PF.stars[secKey(subject, idx)]||0;
+      const unlocked = isUnlocked(idx);
+      const qn = sec.qs ? sec.qs.length : 0;
+      const b = el(`<button class="sec-btn ${stars?'done':''} ${unlocked?'':'locked'}">
+        <span class="nm">${sec.name}</span>
+        <span class="meta">${qn} 题${unlocked?'':' 🔒'}</span>
+        <span class="stars">${starHTML(stars)}</span></button>`);
+      b.onclick=()=>{
+        if(!unlocked){ Sfx.wrong(); toast('🔒 先通关前面的小节解锁（相隔一节即可）'); return; }
+        Sfx.click(); startSection(idx);
+      };
+      grid2.appendChild(b);
+      /* 章节云朵遮罩 + 解锁探索式飘云：锁定章节被云遮住；已解锁章节首次滚入视区时云朵飘散露出内容 */
+      (function(){
+        const revealedSet = window.__bt_cloudRevealed || (window.__bt_cloudRevealed = new Set());
+        const cloudKey = subject + '|' + idx;
+        if(!unlocked){                                   // 仍锁定 → 云朵保持不动
+          b.appendChild(el('<span class="sec-cloud"></span>'));
+          return;
+        }
+        if(revealedSet.has(cloudKey)) return;            // 已探索过 → 不再罩云
+        const cloud = el('<span class="sec-cloud"></span>');
+        b.appendChild(cloud);
+        const drift = ()=>{ revealedSet.add(cloudKey); cloud.classList.add('drift'); cloud.addEventListener('animationend', ()=>cloud.remove(), {once:true}); };
+        if(typeof IntersectionObserver==='undefined'){ drift(); return; }
+        const io = new IntersectionObserver((ents, obs)=>{
+          ents.forEach(en=>{
+            if(en.isIntersecting && !b.classList.contains('locked')){ drift(); obs.disconnect(); }
+          });
+        }, {threshold:.55});
+        io.observe(b);
+      })();
+    });
+    g.appendChild(grid2);
+    wrap.appendChild(g);
+  }
+}
+/* 从章节选择进入某个小节：一场自包含的闯关（答题 → 战斗 → 结算） */
+function startSection(idx){
+  const bonus = heroBonus();
+  const hp = HERO_MAX_HP + bonus.hp;
+  level = level || (gameType==='politics' ? '马克思主义基本原理' : gameType==='physics' ? '力学' : '高等数学');
+  lastSecIdx = idx;               // 失败结算需要知道当前小节
+  P = { weapon:1, maxHp:hp, hp, score:0, round:idx, step:0, correct:0, wrong:0,
+        stage1Time:null, secQTotal: QBank()[level][idx].qs.length };
+  usedAreas.clear();
+  state='question';
   doorGroup.visible=false;
   heroGroup.position.set(0,0.7,HERO_Z);
+  heroGroup.rotation.set(0,0,0); failFallT0=0;   // 扶正战士（失败CG后重开）
+  applyTheme();
+  updateHeroWeapon();
+  setView();
+  showQuestion();
+}
+function startRun(k){
+  if(gameType!=='english'){ showChapterMenu(k); return; }   // 数学/政治：进入章节选择
+  level=k; P={weapon:1,maxHp:HERO_MAX_HP+heroBonus().hp,hp:HERO_MAX_HP+heroBonus().hp,score:0,round:0,step:0,correct:0,wrong:0,stage1Time:null};
+  usedWords.clear();
+  state='question';
+  doorGroup.visible=false;
+  heroGroup.position.set(0,0.7,HERO_Z);
+  heroGroup.rotation.set(0,0,0); failFallT0=0;   // 扶正战士（失败CG后重开）
   applyTheme();
   updateHeroWeapon();
   setView();
@@ -4137,10 +5539,31 @@ function pickWord(){
   }
   usedWords.add(w[0]); curWord=w;
 }
+/* ============ 累计错误机制：每错一题打一个红叉 ============ */
+/* 英语：错满 5 次立即判负；数学：错满 5 次怪物狂暴、战斗注定失败 */
+const WRONG_LIMIT = 5;
+function xRowHTML(){
+  let boxes='';
+  for(let i=0;i<WRONG_LIMIT;i++) boxes += `<span class="xbox ${i<P.wrong?'hit':''}"></span>`;
+  const left = WRONG_LIMIT - P.wrong;
+  const label = gameType!=='english' ? `✖ 错题 ${P.wrong}/${WRONG_LIMIT}` : `✖ 容错 ${left}/${WRONG_LIMIT}`;
+  return `<span class="xl">${label}</span>${boxes}`;
+}
+function xRowWrap(){ return `<div class="xrow ${WRONG_LIMIT-P.wrong<=1?'danger':''}" id="xrow">${xRowHTML()}</div>`; }
+function updateXRow(){
+  const x=ui.querySelector('#xrow'); if(!x) return;
+  x.innerHTML=xRowHTML();
+  x.classList.toggle('danger', WRONG_LIMIT-P.wrong<=1);
+}
 function showQuestion(){
+  if(gameType!=='english') return showQuestionMath();
+  return showQuestionEn();
+}
+function showQuestionEn(){
   pickWord();
   const [en,zh]=curWord;
   const showEn = Math.random()<0.5; // true:给英文选中文; false:给中文选英文
+  curEnQ=[en,zh,showEn];
   const question = showEn?`指译：“${en}”`:`译回：“${zh}”`;
   const correct = showEn?zh:en;
   // 混淆项：从同等级有效词里随机抽含义（避免出现 "n&v" 等脏数据）
@@ -4155,6 +5578,7 @@ function showQuestion(){
   ui.innerHTML=`
     <div class="panel">
       <div class="sub">${level} · 第 ${P.round+1} 关词汇挑战</div>
+      ${xRowWrap()}
       <div class="${showEn?'q-en':'q-zh'}">${showEn?en:zh}</div>
       <div class="sub" style="margin-bottom:8px">请选出它的${showEn?'中文意思':'英文拼写'}</div>
       <div id="opts"></div>
@@ -4164,23 +5588,132 @@ function showQuestion(){
   opts.forEach(o=>{
     if(o===undefined||o===null) return;
     const b=el(`<button class="opt-btn">${o}</button>`);
-    b.onclick=()=>answer(o,correct,b);
+    b.onclick=()=>answerEn(o,correct,b);
     box.appendChild(b);
   });
 }
+let curEnQ=null;
 let answered=false;
-function answer(choice, correct, btn){
+function answerEn(choice, correct, btn){
   if(answered) return; answered=true;
   const ok = choice===correct;
   const qhint=ui.querySelector('#qhint'); const btns=ui.querySelectorAll('.opt-btn');
   btns.forEach(b=>{ b.style.pointerEvents='none'; if(b.textContent===correct) b.classList.add('correct'); });
   if(!ok) btn.classList.add('wrong');
-  if(ok){ P.correct++; qhint.textContent='✔ 答对啦！请选择一项门之力加成'; Sfx.correct(); }
-  else   { P.wrong++;   qhint.textContent='✘ 答错了。正确是「'+correct+'」本轮无加成，战斗继续…'; Sfx.wrong(); }
+  if(ok){
+    P.correct++; PF.stats.correct++; addXP(4); saveProfile();
+    qhint.textContent='✔ 答对啦！稍候选择门之力加成…';
+    Sfx.correct();
+  }else{
+    P.wrong++; PF.stats.wrong++; addXP(1); saveProfile();
+    updateXRow();
+    Sfx.wrong();
+    if(curEnQ) addWrongBookEn(curEnQ[0], curEnQ[1], curEnQ[2], choice, correct);
+    if(P.wrong >= WRONG_LIMIT){
+      // 累计错满：立即宣布本次失败，按分数结算金币（失败CG）
+      qhint.innerHTML='💀 容错用尽！正确是「'+correct+'」—— 本局失败…';
+      setTimeout(()=>gameOver('wrongs'), 1600);
+      return;
+    }
+    qhint.textContent='✘ 答错了。正确是「'+correct+'」本轮无加成，战斗继续…';
+  }
   setTimeout(()=>{
     if(ok){ state='upgrade'; showUpgrade(); }
     else { enterBattle(); }
-  }, ok ? 850 : 4000);   // 答错多停留4秒，让玩家看清正确答案
+  }, ok ? 2000 : 4000);   // 答对停留2秒再选加成；答错多停留4秒看清正确答案
+}
+/* ============ 数学/政治题（逐节闯关：每节 N 题 + 1 场战斗） ============ */
+function showQuestionMath(){
+  answered=false;
+  const sec = QBank()[level][P.round];
+  if(!sec || !sec.qs || !sec.qs[P.step]){ enterBattle(); return; }   // 兜底：异常时直接开战
+  const q = sec.qs[P.step];
+  const correctIdx = q.a;
+  const t = q.t || '概念';
+  const K = Math.max(1, Math.min(5, sec.qs.length));   // 通关门槛：需答对 K 题（≤5）
+  const leadHTML = q.lead ? `<div class="lead-box"><span class="lb-tag">📖 引例 · 抛砖引玉</span><div>${renderMath(q.lead)}</div></div>` : '';
+  ui.innerHTML=`
+    <div class="panel">
+      <div class="q-progress">${modeIcon()} ${level} · ${sec.name}</div>
+      <div class="sub" style="margin-top:2px">第 ${P.step+1}/${sec.qs.length} 题</div>
+      ${xRowWrap()}
+      <div class="sub" style="font-size:11px;color:#c07800;margin:0 0 4px">⚔ 通关门槛：答对 ≥${K} 题并全选武器强化（攻击 ${Math.pow(2,K)}）· 错满 ${WRONG_LIMIT} 题怪物狂暴</div>
+      <span class="q-badge b-${t}">${t}</span>
+      ${leadHTML}
+      <div class="q-en" style="line-height:1.7">${renderMath(q.q)}</div>
+      <div class="sub" style="margin-bottom:8px">请选择正确答案</div>
+      <div id="opts"></div>
+      <div class="hint" id="qhint"></div>
+      <div id="whyWrap"></div>
+    </div>`;
+  const box=ui.querySelector('#opts');
+  q.opts.forEach((o,i)=>{
+    const b=el(`<button class="opt-btn">${renderMath(o)}</button>`);
+    b.onclick=()=>answerMath(i, correctIdx, b);
+    box.appendChild(b);
+  });
+}
+function answerMath(choice, correctIdx, btn){
+  if(answered) return; answered=true;
+  const ok = choice===correctIdx;
+  const sec = QBank()[level][P.round];
+  const q = sec && sec.qs ? sec.qs[P.step] : null;
+  const qhint=ui.querySelector('#qhint'); const btns=ui.querySelectorAll('.opt-btn');
+  btns.forEach((b,i)=>{ b.style.pointerEvents='none'; if(i===correctIdx) b.classList.add('correct'); });
+  if(!ok) btn.classList.add('wrong');
+  const whyWrap=ui.querySelector('#whyWrap');
+  let whyHTML='';
+  if(ok){
+    P.correct++; PF.stats.correct++;
+    const xp=addXP(5); saveProfile();
+    Sfx.correct();
+    if(q && q.why){
+      whyHTML=`<div class="why-box"><span class="wb-tag">💡 解析 · 为什么</span><div>${renderMath(q.why)}</div></div>`;
+    }
+    qhint.innerHTML=`✔ 答对啦！✨+${xp} 经验${q&&q.why?' · 看看解析再走':''}`;
+  }else{
+    P.wrong++; PF.stats.wrong++;
+    const xp=addXP(1); saveProfile();
+    Sfx.wrong();
+    updateXRow();
+    const rightTxt = (q && q.opts && q.opts[correctIdx]) ? q.opts[correctIdx] : '';
+    const chosenTxt = (q && q.opts && q.opts[choice]) ? q.opts[choice] : '';
+    addWrongBook(q, chosenTxt, rightTxt);
+    const why = (q && q.why) ? renderMath(q.why) : '';
+    whyHTML=`<div class="why-box" style="border-left-color:#ef4444"><span class="wb-tag" style="background:#ef4444">💡 正确答案与解析</span>
+      <div style="margin-bottom:6px">正确答案：${renderMath(rightTxt)}</div>
+      ${why?`<div>${why}</div>`:'<div style="opacity:.7">本题暂无解析，可在教材对应小节回顾。</div>'}</div>`;
+    qhint.innerHTML = P.wrong>=WRONG_LIMIT
+      ? `💀 已错满 ${WRONG_LIMIT} 题！怪物狂暴已不可阻挡，本节注定失守……`
+      : `✘ 答错了（✨+${xp} 安慰经验）· 读懂解析，点击继续`;
+  }
+  if(whyHTML) whyWrap.innerHTML=whyHTML;
+  // 继续按钮：读完解析自己掌握节奏（回车/空格也能继续）
+  const bar=el(`<div class="btn-row"><button class="btn-main" id="btnNext">${ok?'下一步 ▸':'继续 ▸'}</button></div>`);
+  whyWrap.appendChild(bar);
+  let gone=false;
+  const go=()=>{
+    if(gone) return; gone=true;
+    window.removeEventListener('keydown', onKey);
+    if(ok){ state='upgrade'; showUpgrade(); }
+    else { mathAdvance(); }
+  };
+  const onKey=(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); Sfx.click(); go(); } };
+  window.addEventListener('keydown', onKey);
+  ui.querySelector('#btnNext').onclick=()=>{ Sfx.click(); go(); };
+  // 无解析且答对：保持原有的短自动跳转节奏
+  if(ok && !(q&&q.why)) setTimeout(go, 850);
+}
+// 回答正确并选择加成后：英语直接开战；数学/政治推进本节的下一题或进入战斗
+function nextAfterPick(){
+  if(gameType==='english'){ enterBattle(); return; }
+  mathAdvance();
+}
+// 数学/政治推进：本节下一题，或本节题答完 → 战斗
+function mathAdvance(){
+  const sec = QBank()[level][P.round];
+  if(sec && P.step+1 < sec.qs.length){ P.step++; state='question'; showQuestion(); }
+  else { state='battle'; enterBattle(); }
 }
 /* ============ 加成二选一 ============ */
 function showUpgrade(){
@@ -4188,19 +5721,20 @@ function showUpgrade(){
   const name = weaponName(lv);
   const newLv = lv+1;
   const newName = weaponName(newLv);
-  const atkNow=P.weapon, atkNext=P.weapon*2;
+  const capped = P.weapon >= 32;                       // 攻击已达 32 倍上限 → 每次 +100
+  const atkNow=P.weapon, atkNext= capped ? P.weapon+100 : P.weapon*2;
   const spdNow=heroAttackSpeedMult().toFixed(1), spdNext=Math.min(Math.pow(1/ATK_SPEED_FACTOR,newLv), MAX_ATK_MULT).toFixed(1);
   ui.innerHTML=`
     <div class="panel">
-      <div class="sub">回答正确，门的能量涌向你！选择一项永久加成</div>
-      <div class="sub" style="font-size:13px;color:#ffd27a">⚔ 当前武器：${name} <b>Lv.${lv}</b></div>
+      <div class="sub">回答正确，门的能量涌向你！选择一项闯关加成</div>
+      <div class="sub" style="font-size:13px;color:#ffd27a">⚔ 当前武器：${name} <b>Lv.${lv}</b>${capped?' · 已达 32 倍上限，每次攻击 +100':''}</div>
       <div class="grid-2">
         <button class="upgrade-btn w2">强化为 ${newName}<u>攻击 ${atkNow} → ${atkNext} · 攻速 ${spdNow} → ${spdNext}×</u></button>
         <button class="upgrade-btn ammo">最大生命 +5<u>上限 ${P.maxHp} → ${P.maxHp+5}</u></button>
       </div>
     </div>`;
-  ui.querySelector('.w2').onclick=()=>{ Sfx.upgrade(); P.weapon*=2; updateHeroWeapon(); applyUpgradeFlash('w2'); autoSave(); enterBattle(); };
-  ui.querySelector('.ammo').onclick=()=>{ Sfx.upgrade(); P.maxHp+=5; P.hp=P.maxHp; applyUpgradeFlash('ammo'); autoSave(); enterBattle(); };
+  ui.querySelector('.w2').onclick=()=>{ Sfx.upgrade(); P.weapon = capped ? P.weapon+100 : P.weapon*2; updateHeroWeapon(); applyUpgradeFlash('w2'); nextAfterPick(); };
+  ui.querySelector('.ammo').onclick=()=>{ Sfx.upgrade(); P.maxHp+=5; P.hp=P.maxHp; applyUpgradeFlash('ammo'); nextAfterPick(); };
 }
 function applyUpgradeFlash(kind){
   const label = kind==='w2' ? '武器强化！' : '生命提升！';
@@ -4220,15 +5754,15 @@ function buildMinion(color){
   const body = new THREE.Mesh(new THREE.SphereGeometry(.5,16,12), skin);
   body.scale.set(1,.92,.95); body.position.y=.62; g.add(body);
   const head = new THREE.Mesh(new THREE.SphereGeometry(.4,16,12), skin); head.position.y=1.3; g.add(head);
-  // 小尖耳
+  // 小尖耳（圆头收尖，整体随耳旋转）
   [-1,1].forEach(s=>{
+    const earG = new THREE.Group();
     const ear = new THREE.Mesh(new THREE.ConeGeometry(.07,.18,6), skin);
-    ear.position.set(s*.37,1.44,-.02); ear.rotation.z=s*1.1; g.add(ear);
+    ear.position.y=.09; earG.add(ear);
+    const earTip = new THREE.Mesh(new THREE.SphereGeometry(.035,8,6), skin);
+    earTip.position.y=.18; earG.add(earTip);
+    earG.position.set(s*.37,1.44,-.02); earG.rotation.z=s*1.1; g.add(earG);
   });
-  // 奶油肚皮贴片
-  const belly = new THREE.Mesh(new THREE.SphereGeometry(.3,14,10),
-    new THREE.MeshStandardMaterial({color:0xf6e8cf,roughness:.7}));
-  belly.scale.set(1,.9,.45); belly.position.set(0,.55,.3); g.add(belly);
   // 大眼睛（白眼底 + 红瞳 + 高光，三层更传神）
   const whiteM = new THREE.MeshStandardMaterial({color:0xffffff,roughness:.25});
   [-.15,.15].forEach(x=>{
@@ -4266,14 +5800,14 @@ function buildMinion(color){
     bone.rotation.z=s*1.32; bone.position.set(s*.26,.12,0); w.add(bone);
     w.position.set(s*.36,.9,-.18); w.userData.side=s; g.add(w); wings.push(w);
   });
-  // 弯曲小尾巴（翘在背后）
+  // 弯曲小尾巴（圆润球串，翘在背后）
   const tail = new THREE.Group();
-  const ta1 = new THREE.Mesh(new THREE.ConeGeometry(.055,.34,6), skin);
-  ta1.rotation.x=Math.PI*.42; ta1.position.set(0,.12,-.15); tail.add(ta1);
-  const ta2 = new THREE.Mesh(new THREE.ConeGeometry(.04,.26,6), skin);
-  ta2.rotation.x=Math.PI*.3; ta2.position.set(0,.26,-.28); tail.add(ta2);
-  const taTip = new THREE.Mesh(new THREE.ConeGeometry(.04,.12,6), darkM);
-  taTip.rotation.x=Math.PI*.26; taTip.position.set(0,.38,-.36); tail.add(taTip);
+  const ta1 = new THREE.Mesh(new THREE.SphereGeometry(.075,12,10), skin);
+  ta1.position.set(0,.14,-.16); tail.add(ta1);
+  const ta2 = new THREE.Mesh(new THREE.SphereGeometry(.06,12,10), skin);
+  ta2.position.set(0,.27,-.29); tail.add(ta2);
+  const taTip = new THREE.Mesh(new THREE.SphereGeometry(.045,10,8), darkM);
+  taTip.position.set(0,.38,-.38); tail.add(taTip);
   tail.position.set(0,.52,-.4); g.add(tail);
   // 小短臂 + 手套感圆手 + 三尖小爪
   [-1,1].forEach(s=>{
@@ -4284,6 +5818,8 @@ function buildMinion(color){
     for(let i=-1;i<=1;i++){
       const cl = new THREE.Mesh(new THREE.ConeGeometry(.026,.12,6), darkM);
       cl.position.set(s*.62+i*.055,.33,.09); cl.rotation.x=Math.PI; g.add(cl);
+      const ct = new THREE.Mesh(new THREE.SphereGeometry(.015,6,4), darkM);
+      ct.position.set(s*.62+i*.055,.33-.06,.09); g.add(ct);
     }
   });
   // 圆短腿（压扁球）
@@ -4299,19 +5835,43 @@ function buildMinion(color){
 /* ============ 战斗生成与关卡循环 ============ */
 // 小怪按波次进场（多行多列、错落有致），并缓慢并道，不会一拥而上围殴
 function spawnMinion(sp){
-  const m = buildMinion(CONFIG[level].color);
+  const m = buildMinion(levelColor());
   m.position.set(sp.lane, 0, SPAWN_Z - sp.row*0.95);
   scene.add(m);
   enemies.push({group:m, hp:sp.hp, maxHp:sp.hp, atk:sp.atk, speed:MINION_SPEED, type:'minion',
                 alive:true, nextMelee:0, inContact:false, spawnAt:performance.now(), homeX:sp.lane*0.35});
 }
-function spawnBoss(hp, atk, r){
-  const b = buildMonster(CONFIG[level].color, r);
+function spawnBoss(hp, atk, r, berserk){
+  const b = buildMonster(levelColor(), r);
   b.position.set(0, 0, BOSS_SPAWN_Z);
+  if(berserk){
+    // 狂暴形态：体型膨胀+通体泛红+移速大增，无视小怪队列直接冲脸
+    b.userData.baseScale *= 1.45;
+    b.scale.setScalar(b.userData.baseScale);
+    const mats = new Set();
+    b.traverse(o=>{
+      if(!o.material) return;
+      (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{ if(m.emissive) mats.add(m); });
+    });
+    const red = new THREE.Color(0xff1a1a);
+    mats.forEach(m=>{
+      m.emissive.lerp(red, .65);
+      m.emissiveIntensity = Math.max(m.emissiveIntensity||.3, .8);
+    });
+  }
   scene.add(b);
-  enemies.push({group:b, hp, maxHp:hp, atk, speed:BOSS_SPEED, type:'boss',
-                alive:true, nextMelee:0, inContact:false, spawnAt:performance.now(), homeX:0, hits:0});
+  enemies.push({group:b, hp, maxHp:hp, atk, speed: berserk ? 3.2 : BOSS_SPEED, type:'boss',
+                alive:true, nextMelee:0, inContact:false, spawnAt:performance.now(), homeX:0, hits:0, berserk:!!berserk});
+  if(berserk){
+    setTimeout(()=>{
+      floatText(b.position.clone().add(new THREE.Vector3(0,4.4,0)), '👹 狂 暴 ！！', '#ff3030');
+      spawnRing(b.position.clone(), 5.5, 0xff2020);
+      screenShake(0.5);
+      Sfx.explode();
+    }, 500);
+  }
 }
+/* 战斗采用纯自动攻防：无主动技能，专注答题强化武器 */
 function enterBattle(){
   answered=false; curWord=null; state='battle';
   // 每关随机切换场景主题（与上一关不同）
@@ -4320,15 +5880,41 @@ function enterBattle(){
   clearEnemies();
   spawnQueue=[]; bossDuelNoted=false; chipAcc=0; killCombo=0;
   const r = P.round;
-  const heroDPS = P.weapon / heroAttackInterval();     // 当前每秒输出（攻击力×攻速）
+  const heroDPS = heroAtk() / heroAttackInterval();     // 当前每秒输出（养成加成后）
   // 攻速封顶后小怪数值冻结：血量/数量按封顶等级的等效攻击力计算，不再随等级增长
-  const effWeapon = Math.min(P.weapon, Math.pow(2, ATK_CAP_LV));
+  const effWeapon = Math.min(heroAtk(), Math.pow(2, ATK_CAP_LV));
   const effDPS = effWeapon / heroAttackInterval();
   // 小怪阶段时长预算：第一关无预算（固定保底配置），之后=首关实测用时
   const budget = (r===0) ? 0 : Math.min(15, Math.max(5, P.stage1Time || DEFAULT_STAGE1_TIME));
   curStageBudget = budget;
-  let minionCount, minionHP;
-  if(r===0){
+  curBerserk = false;
+  let minionCount, minionHP, bossHP, bossATK;
+  if(gameType!=='english'){
+    /* 数学/政治/物理战斗：按「本轮题目数 × 40%」动态锚定怪物数值——
+       答对约 40% 的题并选择武器强化，攻击力即可达到锚定值，
+       怪物总生命 = 所需攻击次数 × 锚定攻击力，答对 4 成题就能清场；
+       BOSS 攻击温和（约6%/击），答对越多武器越强、清场越快，不再被怪物打死。
+       错满 5 题怪物狂暴：怪血翻 3 倍 + BOSS 攻击致命，注定失败。 */
+    const sec = (QBank()[level] && QBank()[level][r]) || {qs:[]};
+    const N = Math.max(1, Math.min(40, sec.qs.length));     // 本轮题目数（上限40）
+    curBerserk = P.wrong >= WRONG_LIMIT;
+    const needHits = Math.max(2, Math.round(N * 0.4));      // 答对40%题目 = 击杀所需攻击次数
+    const k40 = Math.min(5, needHits);                      // 40%答对对应的武器强化次数
+    const wep40 = Math.pow(2, k40);                         // 对应武器攻击倍数
+    const atk40 = Math.max(1, Math.round(wep40 * heroBonus().atk));  // 锚定攻击力
+    const totalHP = Math.max(20, needHits * atk40);         // 怪物总生命
+    minionCount = Math.min(40, Math.max(12, Math.round(N * 4)));     // 小怪数量随题数放大，最多40只
+    curStageBudget = 6;                                  // 出怪节奏：6秒小怪阶段
+    if(curBerserk){
+      minionHP = Math.max(1, Math.ceil(totalHP * 1.5 / minionCount)); // 狂暴：怪血翻3倍，只进不出
+      bossHP   = Math.ceil(totalHP * 1.5);                // 狂暴BOSS不可击杀
+      bossATK  = Math.max(6, Math.ceil(P.maxHp * 0.3));   // 狂暴BOSS三四口咬死战士
+    }else{
+      minionHP = Math.max(1, Math.ceil(totalHP * 0.5 / minionCount)); // 小怪阶段消耗一半怪血
+      bossHP   = Math.max(6, Math.ceil(totalHP * 0.5));               // BOSS吃掉另一半
+      bossATK  = Math.max(2, Math.ceil(P.maxHp * 0.06));              // BOSS磨血：约6%/击
+    }
+  }else if(r===0){
     // 第一关保底：3只脆皮小怪+低血BOSS，确保必定能过，并记录本关用时作为后续基准
     minionHP = STAGE1_MINION_HP;
     minionCount = STAGE1_MINIONS;
@@ -4341,14 +5927,23 @@ function enterBattle(){
   }
   // BOSS血量按DPS缩放 → BOSS战时长基本恒定(约3~4.6s)；同时封顶50刀伤害
   // 配合"受击50次秒杀"规则，保证后期BOSS战不超过50刀（血量数字不会膨胀成天文数字）
-  const bossHP = r===0 ? STAGE1_BOSS_HP
-    : Math.min(Math.max(6, Math.round(Math.max(3.2, 4.6 - r*0.12) * heroDPS)), BOSS_KILL_HITS * P.weapon);
-  const bossATK = Math.min(5, 1 + Math.floor(r/4));   // BOSS攻击缓慢增长，封顶5
+  if(gameType==='english'){   // 英语：BOSS血量按DPS缩放、50刀封顶；数学/政治已在上面按通关门槛锚定
+    bossHP = r===0 ? STAGE1_BOSS_HP
+      : Math.min(Math.max(6, Math.round(Math.max(3.2, 4.6 - r*0.12) * heroDPS)), BOSS_KILL_HITS * heroAtk());
+    bossATK = Math.min(5, 1 + Math.floor(r/4));   // BOSS攻击缓慢增长，封顶5
+  }
+  // 动态难度：按近期胜败压力缩放小怪/BOSS 数值（英语首关保底除外）
+  curDiffMult = diffMult();
+  if(curDiffMult > 1.001 && !(gameType==='english' && r===0)){
+    minionHP = Math.max(1, Math.ceil(minionHP*curDiffMult));
+    bossHP   = Math.ceil(bossHP*curDiffMult);
+    bossATK  = Math.max(1, Math.ceil(bossATK*(1+(curDiffMult-1)*0.6)));
+  }
   // 小怪波次计划：每波2~4只（前后错位成多行），压缩在预算前35%出完
   // → 出怪速度快于击杀速度，小怪会在战士前排成贴身围攻队列（有压迫感但伤害可控）
   const waveSize = minionCount<=6 ? 2 : minionCount<=14 ? 3 : 4;
   const waves = Math.ceil(minionCount / waveSize);
-  const period = Math.max(0.55, (budget || 6) * SPAWN_SPAN / waves);
+  const period = Math.max(0.55, (curStageBudget || 6) * SPAWN_SPAN / waves);
   const lanes = [-1.35, 1.35, 0, -0.7, 0.7];
   let idx=0, li=0;
   for(let w=0; w<waves; w++){
@@ -4360,7 +5955,7 @@ function enterBattle(){
   }
   spawnQueue.sort((a,b)=>a.t-b.t);
   // BOSS压轴登场：从远处缓慢逼近，小怪清完后进入决战
-  spawnBoss(bossHP, bossATK, r);
+  spawnBoss(bossHP, bossATK, r, curBerserk);
 
   doorGroup.visible=false;
   heroGroup.position.set(0,0.7,HERO_Z);
@@ -4374,19 +5969,22 @@ function enterBattle(){
 function showBattle(minionCount){
   const boss = enemies.find(e=>e.type==='boss');
   const name = weaponName(weaponLevel());
+  const sec = gameType!=='english' ? QBank()[level][P.round] : null;
+  const placeTxt = sec ? `${modeIcon()} ${sec.name}` : `第 ${P.round+1} 关`;
   ui.innerHTML=`
     <div class="bar-row top"><div class="bar-label">🛡 我方生命</div>
       <div class="bar hero"><i id="bhb"></i></div></div>
-    <div class="bar-row bottom"><div class="bar-label">👾 BOSS HP · 攻击 ${boss?boss.atk:0}</div>
+    <div class="bar-row bottom" style="bottom:150px"><div class="bar-label">👾 BOSS HP · 攻击 ${boss?boss.atk:0}</div>
       <div class="bar mon"><i id="mhb"></i></div></div>
-    <div class="score-chip">第 ${P.round+1} 关 · ${name} Lv${weaponLevel()} · ⚔攻击 <b id="pAtk">${P.weapon}</b> · 攻速${heroAttackSpeedMult().toFixed(1)}× · 得分 <b id="scoreVal">${P.score}</b></div>
+    <div class="score-chip">${placeTxt} · ${name} Lv${weaponLevel()} · ⚔攻击 <b id="pAtk">${heroAtk()}</b> · 攻速${heroAttackSpeedMult().toFixed(1)}× · 得分 <b id="scoreVal">${P.score}</b>${curDiffMult>1.01?` · <b style="color:#ff5c5c">👹怪物×${curDiffMult.toFixed(1)}</b>`:''}</div>
     <div id="comboChip" class="combo-chip" style="display:none"></div>
-    <div class="tip-bottom" id="btip">⚔ 小怪来袭 ×${minionCount}，全部消灭！</div>`;
+    <div class="tip-bottom" id="btip" style="bottom:210px${curBerserk?';color:#ff5c5c;font-weight:800':''}">${curBerserk?`👹 怪物狂暴！错满 ${WRONG_LIMIT} 题 —— 本节注定失守……`:`⚔ 小怪来袭 ×${minionCount}，全部消灭！`}</div>`;
   updateBars();
 }
 // 连击倍率：本局连续击杀，每3连+1×，封顶×10
 function comboMult(){ return Math.min(10, 1 + Math.floor(killCombo/3)); }
 function updateComboUI(){
+  if(killCombo > PF.stats.maxCombo){ PF.stats.maxCombo = killCombo; saveProfile(); checkAchs(); }
   const chip=ui.querySelector('#comboChip'); if(!chip) return;
   if(killCombo<=0){ chip.style.display='none'; return; }
   chip.style.display='block';
@@ -4410,25 +6008,39 @@ function findNearestEnemy(){
   }
   return best;
 }
-function damageEnemy(e, dmg){
+// 怪物动画时间窗：受伤后缩(0..1) / 进攻前扑(0..1)，大小怪通用
+function hurtW(now,e){ const d=now-(e.hurtAt||-1e9); return (d<0||d>260) ? 0 : Math.sin(Math.min(1,d/260)*Math.PI); }
+function atkW(now,e){ const d=now-(e.atkAt||-1e9); return (d<0||d>340) ? 0 : Math.sin(Math.min(1,d/340)*Math.PI); }
+function damageEnemy(e, dmg, crit){
   e.hp -= dmg;
   // BOSS被攻击满50次立即秒杀（后期攻击力爆炸时限制BOSS战时长，节省运行开销）
-  if(e.type==='boss' && ++e.hits >= BOSS_KILL_HITS) e.hp = 0;
+  // 数学/政治模式除外：BOSS血量锚定通关门槛，必须靠门槛战力正面斩杀（差一步强化就杀不动、狂暴BOSS更不可击杀）
+  if(e.type==='boss' && gameType==='english' && ++e.hits >= BOSS_KILL_HITS) e.hp = 0;
   (e.type==='boss'?Sfx.bossHit():Sfx.hit());
-  floatText(e.group.position.clone().add(new THREE.Vector3(0, e.type==='boss'?3.4:1.9, 0)), '-'+dmg, '#d48806');
+  const pos = e.group.position.clone().add(new THREE.Vector3(0, e.type==='boss'?3.4:1.9, 0));
+  if(crit){
+    floatText(pos.clone().add(new THREE.Vector3(0,0.6,0)), '💥暴击 '+dmg, '#ff5c7a');
+    spawnRing(e.group.position.clone(), e.type==='boss'?3.4:1.9, 0xff5c7a);
+  }else{
+    floatText(pos, '-'+dmg, '#d48806');
+  }
+  // 视觉反馈
   flashMesh(e.group);
+  e.hurtAt = performance.now();               // 触发受伤后缩动画（含大小怪）
   if(e.hp<=0){
     e.alive=false;
     e.group.visible=false;
     burstAt(e.group.position.clone(), e.type==='boss'?45:25, e.type==='boss');
-    spawnRing(e.group.position.clone(), e.type==='boss'?3.4:1.9, e.type==='boss'?0xffd700:CONFIG[level].color);
+    spawnRing(e.group.position.clone(), e.type==='boss'?3.4:1.9, e.type==='boss'?0xffd700:levelColor());
     Sfx.explode();
     if(e.type==='boss'){
       winBurst(); screenShake(0.25); Sfx.win();
-      // BOSS击杀：按当前连击倍率大额加分
+      // BOSS击杀：按当前连击倍率大额加分 + 金币/能量/档案
       const pts=50*comboMult();
       P.score+=pts; updateScoreUI();
       floatText(e.group.position.clone().add(new THREE.Vector3(0,3.4,0)), '+'+pts, '#c07800');
+      addCoins(10+comboMult()*2); saveProfile();
+      PF.stats.bossKills++; PF.stats.kills++; saveProfile(); checkAchs();
     }else{
       screenShake(0.08);
       // 连击加分：连续击杀提升分数倍率（每3连+1×，封顶×10），倍率提升时触发金色特效
@@ -4439,6 +6051,9 @@ function damageEnemy(e, dmg){
       P.score+=pts;
       floatText(e.group.position.clone().add(new THREE.Vector3(0,2.7,0)), '+'+pts+(m>1?' ×'+m:''), '#c07800');
       updateComboUI(); updateScoreUI();
+      PF.stats.kills++;
+      if(Math.random()<0.35) addCoins(1+(Math.random()<0.2?1:0));
+      saveProfile();
       if(m>before){
         spawnRing(heroGroup.position.clone(), 2.4, 0xffd700);
         floatText(heroGroup.position.clone().add(new THREE.Vector3(0,3.4,0)), '分数倍率 ×'+m+'！', '#d48806');
@@ -4476,15 +6091,20 @@ function battleTick(now){
   while(spawnQueue.length && spawnQueue[0].t <= elapsed){
     spawnMinion(spawnQueue.shift());
   }
-  // 战士自动攻击最近的敌人
+  // 战士自动攻击最近的敌人（含养成暴击 + 狂暴增伤）
   if(now >= heroNextAttack){
     const target = findNearestEnemy();
     if(target){
-      punch(heroGroup.position.clone().add(new THREE.Vector3(0,2.2,0)),
-            target.group.position.clone().add(new THREE.Vector3(0, target.type==='boss'?2.4:1.1, 0)), 180, null);
+      // 战士「双手念诀 → 凝聚能量 → 飞刀出鞘」，直取最近目标
+      const fromV = heroGroup.position.clone().add(new THREE.Vector3(0,1.32,-0.5));
+      const toV = target.group.position.clone().add(new THREE.Vector3(0, target.type==='boss'?2.2:1.0, 0));
+      throwKnife(fromV, toV, 230);
+      heroCastT = now;                       // 触发「念诀施法」动画
       Sfx.swing();
-      heroSwingT = now;                      // 触发挥剑动画
-      damageEnemy(target, P.weapon);
+      let dmg = heroAtk();
+      const crit = Math.random() < heroBonus().crit;
+      if(crit) dmg = Math.round(dmg*2);      // 暴击×2
+      damageEnemy(target, dmg, crit);
       updateBars();
     }
     heroNextAttack = now + heroAttackInterval()*1000;
@@ -4496,12 +6116,20 @@ function battleTick(now){
   let limit = HERO_Z - CONTACT_DIST, minionEngaged = false;
   for(const e of sorted){
     const p = e.group.position;
-    if(p.z < limit){
-      p.z = Math.min(limit, p.z + e.speed*dt);
+    if(p.z < limit || e.berserk){            // 狂暴BOSS无视前排队列，直接冲脸
+      const rec = hurtW(now,e), att = atkW(now,e);
+      let dz = e.speed*dt;
+      if(att>0) dz += att*e.speed*1.5*dt;    // 进攻：前扑一小步
+      if(rec>0) dz -= rec*e.speed*1.7*dt;    // 受伤：后退一小步（被击中击退）
+      p.z = Math.min(limit, p.z + dz);
     }
     // 横向缓慢并道归位（向各自车道中心靠拢，队形自然）
     p.x += (e.homeX - p.x) * Math.min(1, dt*1.4);
     const atFront = p.z >= HERO_Z - CONTACT_DIST - 0.05;
+    if(e.type==='minion' && atFront){
+      // 贴身小怪周期性前扑撕咬（进攻动作）
+      if(now >= (e.animAtk||0)){ e.atkAt = now; e.animAtk = now + 780 + Math.random()*340; }
+    }
     if(e.type==='minion'){
       if(atFront) minionEngaged = true;   // 贴身标记：围攻消耗生效
     }else if(atFront){
@@ -4509,6 +6137,7 @@ function battleTick(now){
       if(!e.inContact){ e.inContact = true; e.nextMelee = now + MELEE_WINDUP*1000; }
       if(now >= e.nextMelee){
         e.nextMelee = now + MELEE_INTERVAL*1000;
+        e.atkAt = now;                       // 触发BOSS进攻前扑动画
         P.hp = Math.max(0, P.hp - e.atk);
         flashHero(); damageFlash(); screenShake(0.32); Sfx.hurt();
         floatText(heroGroup.position.clone().add(new THREE.Vector3(0,2.8,0)), '-'+e.atk, '#e04444');
@@ -4519,7 +6148,7 @@ function battleTick(now){
       e.inContact = false;
     }
     // 后排不得越过前排（保持队形间距，小怪排得更密形成多行队列）
-    limit = Math.min(limit, p.z - (e.type==='boss'?2.1:0.95));
+    if(!e.berserk) limit = Math.min(limit, p.z - (e.type==='boss'?2.1:0.95));
   }
   // 小怪围攻消耗：只要有小怪贴身，每秒损失最大生命的6%（整数结算，掉血可见但不致命）
   if(minionEngaged){
@@ -4551,6 +6180,11 @@ function clearEnemies(){
   for(const e of enemies){ if(e.group){ scene.remove(e.group); disposeGroup(e.group); } }
   enemies = [];
 }
+let lastSecIdx = 0;                // 刚刚通关的小节索引（数学模式结算用）
+let failFallT0 = 0;                // 失败CG：英雄倒地动画起点时间戳（0=未播放）
+let failReason = '';               // 失败原因：wrongs容错尽 / berserk怪物狂暴 / slain战士倒下
+let lastWinCoins = 0;              // 英语最近一关通关金币（胜利面板展示）
+let curBerserk = false;            // 本场战斗是否狂暴（数学错满5题）
 function endCombat(won){
   battleBusy=false;
   if(won){
@@ -4560,7 +6194,9 @@ function endCombat(won){
       P.stage1Time = Math.min(20, Math.max(5, t));
     }
     P.score += 100 + P.hp*10;
+    lastSecIdx = P.round;          // 结算的是这个小节
     P.round++;
+    if(gameType==='english'){ lastWinCoins = addCoins(15 + P.round*3); saveProfile(); }   // 英语：通关奖励金币（胜利面板展示）
     // 胜利回血：按最大生命30%（至少4点），保证持续闯关的续航
     P.hp = Math.min(P.maxHp, P.hp + Math.max(4, Math.round(P.maxHp*HEAL_RATIO)));
     setTimeout(()=>completeStage(), 700);
@@ -4569,28 +6205,169 @@ function endCombat(won){
   }
 }
 function completeStage(){
-  autoSave();
+  if(gameType!=='english'){
+    P.step=0;
+    showSectionResult(lastSecIdx);
+    return;
+  }
   clearEnemies();
   heroGroup.position.set(0,0.7,HERO_Z);
-  state='question';
-  showQuestion();
+  state='victory';                  // 英语：胜利结算面板（含5%掉卡）
+  showVictorySettle();
 }
-function gameOver(){
-  clearEnemies();
-  state='menu';
-  Sfx.lose();
+/* 英语胜利结算：战报 + 5% 掉卡，然后继续闯关 */
+function showVictorySettle(){
+  PF.pressure = Math.max(0, (PF.pressure||0) - 0.45);   // 动态难度：胜局泄压
+  saveProfile();
+  let dropHTML='';
+  if(Math.random() < 0.05){
+    const c = rollCard(currentCardSub());
+    grantCard(c.id, true);
+    dropHTML = `<div class="drop-card rar-${c.rar}">
+      <span style="font-size:22px">${c.emoji}</span>
+      <span>🎴 ${c.name} <small style="opacity:.75">· ${RAR_NAMES[c.rar]} · ${c.desc}</small></span>
+    </div>`;
+    setTimeout(()=>{ toast(`🎴 战利品掉落「${c.name}」${RAR_NAMES[c.rar]} · ${c.desc}`, 'card'); }, 500);
+  }
   ui.innerHTML=`
     <div class="panel">
-      <h1 class="title">挑战结束</h1>
-      <div class="sub">${level} · 闯到第 ${P.round+1} 关</div>
-      <div class="big-num">${P.score}</div>
-      <div class="sub">答对 ${P.correct} 题 · 答错 ${P.wrong} 题</div>
+      <h1 class="title" style="font-size:24px">🎉 第 ${lastSecIdx+1} 关 通关！</h1>
+      <div class="sub">${level} · 连胜进行中</div>
+      <div class="settle-rows">
+        <div class="row"><span>🏆 累计得分</span><b>${P.score}</b></div>
+        <div class="row"><span>📝 答题（累计）</span><span>对 <b>${P.correct}</b> · 错 ${P.wrong}（容错剩 ${Math.max(0,WRONG_LIMIT-P.wrong)}）</span></div>
+        <div class="row"><span>🪙 通关金币</span><b>+${lastWinCoins}</b></div>
+        <div class="row"><span>❤️ 生命（已回血30%）</span><b>${P.hp}/${P.maxHp}</b></div>
+      </div>
+      <div id="dropWrap" style="text-align:center">${dropHTML}</div>
       <div class="btn-row">
-        <button class="btn-ghost" onclick="location.reload()">回主菜单</button>
-        <button class="btn-main" id="retry">再来一局</button>
+        <button class="btn-ghost" id="vsMenu">回主菜单</button>
+        <button class="btn-main" id="vsNext">继续闯关 ▸</button>
       </div>
     </div>`;
-  ui.querySelector('#retry').onclick=()=>startRun(level);
+  ui.querySelector('#vsMenu').onclick=()=>{ Sfx.click(); showMenu(); };
+  ui.querySelector('#vsNext').onclick=()=>{ Sfx.click(); state='question'; showQuestion(); };
+}
+/* 数学小节结算：星级 + 经验/金币 + 掉卡，然后回到章节选择 */
+function showSectionResult(idx){
+  clearEnemies();
+  heroGroup.position.set(0,0.7,HERO_Z);
+  state='chapter';
+  PF.pressure = Math.max(0, (PF.pressure||0) - 0.45);   // 动态难度：胜局泄压
+  const sec = QBank()[level][idx];
+  const total = P.correct + P.wrong;
+  const ratio = total>0 ? P.correct/total : 0;
+  let stars;
+  if(P.wrong===0 && P.correct>0) stars=3;
+  else if(ratio>=0.8) stars=2;
+  else stars=1;
+  const key = secKey(level, idx);
+  const oldStars = PF.stars[key]||0;
+  const isNewBest = stars > oldStars;
+  PF.stars[key] = Math.max(oldStars, stars);
+  PF.stats.sections++;
+  // 奖励结算（星级为主力经验：全星通关 ≈ 满级）
+  const xpGain = addXP(30 + P.correct*6 + stars*75);
+  const coinGain = addCoins(12 + stars*6 + Math.round(P.hp/4));
+  // 掉卡：5% 概率掉落当前大章的卡牌
+  let dropHTML = '';
+  if(Math.random() < 0.05){
+    const c = rollCard(currentCardSub());
+    const r = grantCard(c.id, true);
+    dropHTML = `<div class="drop-card rar-${c.rar}">
+      <span style="font-size:22px">${c.emoji}</span>
+      <span>🎴 ${c.name} <small style="opacity:.75">· ${RAR_NAMES[c.rar]} · ${c.desc}</small></span>
+    </div>`;
+    setTimeout(()=>{ toast(`🎴 掉落卡牌「${c.name}」${RAR_NAMES[c.rar]} · ${c.desc}`, 'card'); }, 600);
+  }
+  if(stars===3 && P.wrong===0){ unlockAch('perfect'); PF.stats.perfectCount=(PF.stats.perfectCount||0)+1; }
+  saveProfile(); checkAchs();
+  if(stars>=2) winBurst();
+  Sfx.win();
+  const hasNext = idx+1 < QBank()[level].length;
+  let starsHTML='';
+  for(let i=0;i<3;i++) starsHTML += i<stars ? '<span class="on">★</span>' : '<span class="off">★</span>';
+  ui.innerHTML=`
+    <div class="panel">
+      <h1 class="title" style="font-size:24px">🎉 小节通关！</h1>
+      <div class="sub">${level} · ${sec.name}</div>
+      <div class="stars-big">${starsHTML}</div>
+      <div class="sub" style="margin-top:0">${isNewBest?(oldStars?`⭐ 星级提升 ${oldStars}→${stars}！`:'🆕 首次通关！'):(stars<3?'💪 再答全对可升星':'保持三星！')}</div>
+      <div class="settle-rows">
+        <div class="row"><span>📝 答题</span><span>对 <b>${P.correct}</b> · 错 ${P.wrong}</span></div>
+        <div class="row"><span>🏆 本关得分</span><b>${P.score}</b></div>
+        <div class="row"><span>✨ 经验</span><b>+${xpGain}</b></div>
+        <div class="row"><span>🪙 金币</span><b>+${coinGain}</b></div>
+        <div class="row"><span>🧙 勇者等级</span><b>Lv.${PF.lv}（${PF.lv>=MAX_LV?'MAX':PF.xp+'/'+xpNeed()}）</b></div>
+      </div>
+      <div id="dropWrap" style="text-align:center">${dropHTML}</div>
+      <div class="btn-row">
+        <button class="btn-ghost" id="rsBack">返回选节</button>
+        ${hasNext?'<button class="btn-main" id="rsNext">下一节 ▸</button>':''}
+        ${!hasNext?'<button class="btn-main" id="rsDone">本科通关 🎓</button>':''}
+      </div>
+    </div>`;
+  ui.querySelector('#rsBack').onclick=()=>{ Sfx.click(); showChapterMenu(level); };
+  const nb=ui.querySelector('#rsNext');
+  if(nb) nb.onclick=()=>{ Sfx.click(); startSection(idx+1); };
+  const db=ui.querySelector('#rsDone');
+  if(db) db.onclick=()=>{ Sfx.click(); showChapterMenu(level); };
+}
+function gameOver(reason){
+  failReason = reason || (gameType!=='english' && P.wrong>=WRONG_LIMIT ? 'berserk' : 'slain');
+  PF.pressure = Math.min(3, (PF.pressure||0) + 1);      // 动态难度：连败加压，下局怪物更强
+  saveProfile();
+  clearEnemies();
+  state='failcg';                    // 失败CG：英雄倒地 → 红幕结算面板
+  Sfx.lose();
+  failFallT0 = performance.now();    // 触发3D倒地动画（animate循环接管）
+  screenShake(0.45);
+  setTimeout(showFailSettle, 1400);
+}
+/* 失败CG副标题（按失败原因与模式） */
+function failSub(){
+  const secName = (gameType!=='english' && QBank()[level] && QBank()[level][lastSecIdx]) ? QBank()[level][lastSecIdx].name : '';
+  if(failReason==='wrongs')  return `💀 容错用尽 · ${level} · 第 ${P.round+1} 关`;
+  if(failReason==='berserk') return `👹 怪物狂暴 · ${level} · ${secName}`;
+  return gameType!=='english' ? `⚔️ 战士倒下 · ${level} · ${secName}` : `⚔️ 战士倒下 · ${level} · 第 ${P.round+1} 关`;
+}
+/* 失败结算CG：红幕 + 大✕盖章 + 得分滚动 + 按分结算金币 */
+function showFailSettle(){
+  const isSubject = gameType!=='english';
+  const coinGain = addCoins(Math.max(3, Math.round(P.score/10)));   // 按分数结算金币
+  saveProfile(); checkAchs();
+  ui.innerHTML=`
+    <div class="cg-mask"></div>
+    <div class="panel cg-panel" style="animation-delay:.25s">
+      <div class="cg-x">✕</div>
+      <h1 class="cg-title"><span>挑</span><span>战</span><span>失</span><span>败</span></h1>
+      <div class="sub">${failSub()}</div>
+      <div class="cg-score"><b id="cgScore">0</b><small>本局得分</small></div>
+      <div class="settle-rows">
+        <div class="row"><span>📝 答题</span><span>对 <b>${P.correct}</b> · 错 ${P.wrong}</span></div>
+        ${PF.pressure>0?`<div class="row"><span>👹 动态难度</span><b>下局怪物 ×${(1+PF.pressure*0.9).toFixed(1)}（连败增强，胜局回落）</b></div>`:''}
+        ${isSubject?`<div class="row"><span>🧙 勇者等级</span><b>Lv.${PF.lv}（${PF.lv>=MAX_LV?'MAX':PF.xp+'/'+xpNeed()}）</b></div>`:''}
+        <div class="row"><span>🪙 按分结算金币</span><b>+${coinGain}</b></div>
+        <div class="row"><span>💰 金币余额</span><b>${PF.coins}</b></div>
+      </div>
+      <div class="sub" style="opacity:.8">💪 题没白答，经验都攒着呢，升了级再来收拾它</div>
+      <div class="btn-row">
+        <button class="btn-ghost" id="goMenu">主菜单</button>
+        ${isSubject?'<button class="btn-ghost" id="goChapter">返回选节</button>':''}
+        <button class="btn-main" id="retry">${isSubject?'再战本节':'再来一局'}</button>
+      </div>
+    </div>`;
+  const sc=ui.querySelector('#cgScore');
+  const t0=performance.now(), dur=1100, target=Math.max(0,P.score);
+  (function roll(){
+    const k=Math.min(1,(performance.now()-t0)/dur);
+    sc.textContent=Math.round(target*(1-Math.pow(1-k,3)));
+    if(k<1) requestAnimationFrame(roll);
+  })();
+  ui.querySelector('#goMenu').onclick=()=>{ Sfx.click(); showMenu(); };
+  const gc=ui.querySelector('#goChapter');
+  if(gc) gc.onclick=()=>{ Sfx.click(); showChapterMenu(level); };
+  ui.querySelector('#retry').onclick=()=>{ Sfx.click(); isSubject?startSection(lastSecIdx):startRun(level); };
 }
 
 /* ============ 工具函数 ============ */
@@ -4763,8 +6540,22 @@ function updateProjs(){
   for(let i=projs.length-1;i>=0;i--){
     const p=projs[i]; const k=Math.min(1,(now-p.t0)/p.dur);
     p.m.position.lerpVectors(p.from,p.to,k);
-    if(k>=1){ scene.remove(p.m); p.m.geometry.dispose(); p.m.material.dispose(); projs.splice(i,1); }
+    if(p.spinC) p.m.rotation.z = k*p.spinC*Math.PI*2;   // 飞刀飞行旋转
+    if(k>=1){ scene.remove(p.m); disposeGroup(p.m); projs.splice(i,1); }
   }
+}
+// 飞刀出鞘：一把旋转的飞刀从战士双掌间射向敌方
+function throwKnife(from,to,dur){
+  // 极端攻速保护：限制同时在场的飞刀数量，避免刷满特效
+  let active=0; for(const pp of projs) if(pp.knife) active++;
+  if(active>=5) return;
+  const lv=weaponLevel(), color=weaponColor(lv);
+  const knife=makeSword(0.5+lv*0.06, color, Math.min(0.5,0.22+lv*0.12));
+  const dir=to.clone().sub(from); dir.normalize();
+  knife.position.copy(from);
+  knife.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+  scene.add(knife);
+  projs.push({knife:true, m:knife, from:from.clone(), to:to.clone(), t0:performance.now(), dur, spinC:3+Math.min(lv,6)});
 }
 function floatText(world, txt, color){
   if(typeof color==='number') color='#'+color.toString(16).padStart(6,'0');
@@ -4836,6 +6627,56 @@ function winBurst(){
   setTimeout(()=>c.remove(),1600);
 }
 
+/* ============ 卡牌彩色弹幕：从左侧滑向右侧，循环飞过战士身后 ============ */
+const CARD_RUSH_COLORS=['#ff5d8f','#ffd166','#4cc9f0','#7b61ff','#3fae5a','#ff9f1c','#00d4b3','#ff4d6d'];
+let cardRushState=null;
+function cardRushBurst(){
+  if(cardRushState && cardRushState.meshes.length){  // 已有弹幕正在播放则继续计时
+    cardRushState.t0=performance.now(); return;
+  }
+  const grp=new THREE.Group();
+  const geos=[], mats=[];
+  const N=15;
+  for(let i=0;i<N;i++){
+    const hex=CARD_RUSH_COLORS[(Math.random()*CARD_RUSH_COLORS.length)|0];
+    const geo=new THREE.BoxGeometry(0.62,0.88,0.10);
+    const col=new THREE.Color(hex);
+    const mat=new THREE.MeshStandardMaterial({color:0xffffff, emissive:col,
+      emissiveIntensity:0.55, roughness:0.35, metalness:0.15});
+    const face=new THREE.MeshBasicMaterial({color:col});
+    const m=new THREE.Mesh(geo,[mat,mat,mat,mat,face,mat]);
+    m.position.set(-11.5-Math.random()*2, 0.4+Math.random()*2.2, -1.6+Math.random()*3.2);
+    m.rotation.set((Math.random()-.5)*.2,(Math.random()-.5)*.5,(Math.random()-.5)*.2);
+    m.userData={speed:5.2+Math.random()*4.2, spin:(Math.random()-.5)*.9, bob:Math.random()*6.28, born:performance.now()};
+    grp.add(m); geos.push(geo); mats.push(mat,face);
+  }
+  scene.add(grp);
+  cardRushState={grp, meshes:[...grp.children], geos, mats,
+    t0:performance.now()+400, life:7.0};
+}
+function updateCards(dt, now){
+  const cs=cardRushState; if(!cs) return;
+  const el=(now-cs.t0)/1000;
+  if(el>cs.life+0.9){
+    scene.remove(cs.grp);
+    cs.geos.forEach(g=>g.dispose()); cs.mats.forEach(m=>m.dispose());
+    cardRushState=null; return;
+  }
+  const fade = el>cs.life ? 1-(el-cs.life)/0.9 : 1;   // 收尾淡出
+  const t=now*0.001;
+  for(let k=0;k<cs.meshes.length;k++){
+    const m=cs.meshes[k], u=m.userData;
+    const sp = k%2===0 ? 1 : 0.75;                    // 快慢交错更像弹幕
+    m.position.x += u.speed*sp*dt;
+    m.rotation.z += u.spin*dt;
+    m.position.y += Math.sin(t*2.2+u.bob)*0.02;
+    if(m.position.x>12.5){                            // 循环：回落到最左侧
+      m.position.x=-12.5-Math.random()*2;
+      u.speed=5.2+Math.random()*4.2;
+    }
+    m.scale.setScalar(Math.max(0,fade));
+  }
+}
 /* ============ 主循环 ============ */
 let lastT=performance.now();
 function animate(){
@@ -4847,15 +6688,36 @@ function animate(){
   pts.rotation.y=t*0.05;
   // 环绕武器旋转
   updateOrbitWeapons(t);
-  // 战士待机呼吸起伏（战斗时更活跃）
-  if(state==='battle'){
+  // 战士待机呼吸起伏（战斗时更活跃）；失败CG时播放倒地动画
+  if(state==='failcg'){
+    if(failFallT0){                     // 向后倾倒+下沉，缓动1.1秒后定格
+      const k=Math.min(1,(now-failFallT0)/1100);
+      const e=1-Math.pow(1-k,3);
+      heroGroup.rotation.x=-1.45*e;
+      heroGroup.position.y=Math.max(.1,.7-.58*e);
+      if(k>=1) failFallT0=0;
+    }
+  } else if(state==='battle'){
     heroGroup.position.y = 0.7 + Math.sin(t*2.5)*0.04;
   } else {
     heroGroup.position.y = 0.7 + Math.sin(t*1.8)*0.02;
   }
-  // 攻击冲刺动画：出剑瞬间身体前冲（环绕飞剑随之突进）
-  const sk=(now-heroSwingT)/230;
-  heroGroup.position.z = (sk>=0 && sk<1) ? HERO_Z - 0.5*Math.sin(sk*Math.PI) : HERO_Z;
+  // 战士「双手念诀」施法动画：双掌身前结印 → 能量球凝聚 → 飞刀出手 → 收势
+  const easeIO=(x)=>x*x*(3-2*x);
+  const cc=(now-heroCastT)/330;
+  if(cc>=0 && cc<1){
+    const arr = cc<0.24 ? easeIO(cc/0.24) : (cc<0.62 ? 1 : 1-easeIO((cc-0.62)/0.38));
+    heroGroup.armL.rotation.set(2.05*arr, 0, 0.42*arr);
+    heroGroup.armR.rotation.set(2.05*arr, 0, -0.42*arr);
+    heroGroup.castOrb.visible=true; heroGroup.castOrb.rotation.y=cc*9;
+    heroGroup.castOrb.scale.setScalar(0.02 + 0.62*Math.sin(Math.min(1,cc/0.42)*Math.PI));
+    const thrust = cc<0.42 ? 0 : Math.sin(Math.min(1,(cc-0.42)/0.30)*Math.PI);
+    heroGroup.position.z = HERO_Z - 0.4*thrust;
+  } else {
+    heroGroup.armL.rotation.set(0,0,0); heroGroup.armR.rotation.set(0,0,0);
+    heroGroup.castOrb.visible=false; heroGroup.castOrb.scale.setScalar(0.001);
+    heroGroup.position.z = HERO_Z;
+  }
   // 披风飘动（战斗时更剧烈）
   if(heroGroup.cape) heroGroup.cape.rotation.x=0.14+Math.sin(t*2.3)*0.07+(state==='battle'?0.2+Math.sin(t*9)*0.05:0);
   // 漂浮碎石升降与自转
@@ -4870,9 +6732,25 @@ function animate(){
         const s=(ud.baseScale||1)*(0.05+0.95*(1-Math.pow(1-k,2)));
         e.group.scale.setScalar(k<1?s:(ud.baseScale||1));
       }
-      e.group.rotation.y=Math.sin(t*2 + e.group.position.x)*0.1;
-      e.group.position.y=Math.sin(t*3 + e.group.position.x)*0.04;
-      if(ud.wings) ud.wings.forEach((w,i)=>{ w.rotation.y=w.userData.side*(.35+Math.sin(t*(ud.wingSpd||13)+ud.ph+i)*(ud.wingAmp||.4)); });
+      // —— 怪物步态：清晰迈步起伏 + 左右摇摆 + 前倾俯仰；叠加受伤后仰/进攻前扑 ——
+      const hr = hurtW(now,e), atkK = atkW(now,e);
+      const isBoss = e.type==='boss';
+      const moving = e.group.position.z < HERO_Z - CONTACT_DIST - 0.05;
+      const stepPh = t*(isBoss?5.5:13) + e.homeX*3 + (ud.ph||0);
+      // 迈步起伏：小怪蹦跳式大起伏，BOSS 沉重但明显地下压→弹起
+      const st = moving ? Math.abs(Math.sin(stepPh)) : 0.04;
+      const bob = isBoss ? 0.18*st : 0.36*st;
+      // 迈步左右摇摆（模拟交替踏脚，走路感更足）
+      const sway = moving ? Math.sin(stepPh)*0.20 : Math.sin(t*1.2)*0.05;
+      // 前进整体前倾 + 随步伐轻微俯仰
+      let tx = 0.10 + Math.sin(stepPh*0.5)*0.08 + (moving?0.14:0);
+      tx += atkK*0.5 - hr*0.40;                                     // 进攻压身前扑 / 受伤后仰
+      const atkHop = atkK>0 ? Math.sin(atkK*Math.PI)*0.14 : 0;      // 进攻腾跃着地
+      e.group.rotation.y = Math.sin(t*2 + e.group.position.x)*0.1;
+      e.group.rotation.x = tx;
+      e.group.rotation.z = sway;                                     // 步伐左右摆
+      e.group.position.y = Math.sin(t*3 + e.group.position.x)*0.04 + bob - atkHop + hr*0.06;
+      if(ud.wings) ud.wings.forEach((w,i)=>{ w.rotation.y=w.userData.side*(.35+Math.sin(t*(ud.wingSpd||13)+ud.ph+i)*(ud.wingAmp||.4)+atkK); });
       if(ud.core){
         ud.core.scale.setScalar(1+Math.sin(t*4+ud.ph)*.18);
         ud.coreRing.rotation.z=t*2.2;
@@ -4888,16 +6766,20 @@ function animate(){
     camera.position.x=camBase.x+(Math.random()-0.5)*m*2;
     camera.position.y=camBase.y+(Math.random()-0.5)*m*2;
   }
+  updateDayNight(now,dt);          // 昼夜循环全局播放：主菜单+游戏内都是落日→月升
+  updateMenu3D(dt, now, t);   // 主菜单：3D拨盘 + 运镜
   if(state==='battle' && battleBusy) battleTick(now);
   updateBurst(dt);
+  updateCards(dt, now);
   updateProjs();
   renderer.render(scene,camera);
 }
 window.addEventListener('resize',()=>{
-  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth,innerHeight);
+  const v = viewSize();                                 // 手机竖屏旋转时宽高互换
+  camera.aspect = v.w/v.h; camera.updateProjectionMatrix();
+  renderer.setSize(v.w, v.h);
 });
-renderer.setSize(innerWidth,innerHeight);
+renderer.setSize(viewSize().w, viewSize().h);
 
 // 初始显示主菜单
 state='menu'; showMenu();
@@ -4905,6 +6787,28 @@ updateHeroWeapon();
 // 首次用户交互时解锁音频上下文（浏览器策略限制）
 window.addEventListener('pointerdown',()=>{ Sfx.init(); }, {once:true});
 animate();
+</script>
+<audio id="bgm" src="music.mp3" preload="auto" loop></audio>
+<!-- 舒缓背景音乐开关（首次用户交互时才会真正播放，规避浏览器自动播放拦截） -->
+<button id="bgmToggle" title="背景音乐" style="position:fixed;right:14px;bottom:14px;z-index:9999;width:44px;height:44px;border-radius:50%;border:1px solid rgba(63,174,90,.4);background:rgba(255,255,255,.85);color:#2e5c40;font-size:19px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;transition:.2s;">🎵</button>
+<script>
+(function(){
+  const bgm = document.getElementById('bgm');
+  const btn = document.getElementById('bgmToggle');
+  let on = false;
+  if(!bgm) return;
+  bgm.volume = 0.15;      // 音量调小，舒缓不吵
+  bgm.loop = true;
+  const tryPlay = ()=>{
+    if(on){ bgm.pause(); on=false; btn.style.opacity='.6'; }
+    else{
+      bgm.play().then(()=>{ on=true; btn.style.opacity='1'; }).catch(()=>{ /* 浏览器仍拦截，等待下一次交互 */ });
+    }
+  };
+  btn.addEventListener('click', (e)=>{ e.stopPropagation(); tryPlay(); });
+  // 首次用户交互(点击/触摸)时若音乐尚未开启，则尝试自动开启（尊重用户未主动关闭的情形）
+  window.addEventListener('pointerdown', ()=>tryPlay(), {once:true});
+})();
 </script>
 </body>
 </html>
