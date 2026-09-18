@@ -186,22 +186,19 @@
   @keyframes winBurst{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(0)}}
 
   /* ============ v3：养成 / 章节 / 卡牌 / 成就 / 技能 ============ */
-  /* 宽面板（分页式：头部固定 + 内容自适应 + 底部翻页条，彻底避开内层滚动） */
+  /* 宽面板（滑动式：头部固定 + 内容区滚动，手机旋转态由 _ts 手动接管触摸滚动） */
   .panel.wide{width:min(94%,620px);height:88%;max-height:88%;display:flex;flex-direction:column;text-align:left;padding:20px 22px;}
   .panel.wide h1.title{text-align:center;flex:0 0 auto;}
   .panel.wide .sub{flex:0 0 auto;}
-  .rg-body-pager{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;}
-  .pg-body{flex:1 1 auto;min-height:0;overflow:hidden;position:relative;}
-  .pg-body::-webkit-scrollbar{display:none;width:0;height:0}
-  .pg-body{scrollbar-width:none}
-  .pager{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:12px;margin-top:14px;padding-top:10px;
-    border-top:1px dashed rgba(63,174,90,.35);}
-  .pg-btn{background:rgba(63,174,90,.12);border:1px solid rgba(63,174,90,.45);color:#1e7e46;
-    border-radius:10px;padding:8px 18px;font-weight:700;font-size:14px;cursor:pointer;transition:.15s;}
-  .pg-btn:hover{background:rgba(63,174,90,.22)}
-  .pg-btn:active{transform:scale(.96)}
-  .pg-btn:disabled{opacity:.32;cursor:default;transform:none}
-  .pg-ind{font-weight:800;color:#2e8b57;min-width:56px;text-align:center;font-size:14px}
+  .pg-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;position:relative;
+    overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-right:4px;}
+  /* 桌面：加粗加大的绿色轨道滚动条，方便拖拽；触屏：隐藏滚动条，纯手势滑动 */
+  .pg-body::-webkit-scrollbar{width:14px}
+  .pg-body::-webkit-scrollbar-thumb{background:rgba(63,174,90,.55);border-radius:9px;border:3px solid rgba(250,247,238,.9)}
+  .pg-body::-webkit-scrollbar-thumb:hover{background:rgba(63,174,90,.85)}
+  .pg-body::-webkit-scrollbar-track{background:rgba(63,174,90,.12);border-radius:9px}
+  .pg-body{scrollbar-width:thin;scrollbar-color:rgba(63,174,90,.55) rgba(63,174,90,.12);}
+  @media (pointer:coarse){ .pg-body::-webkit-scrollbar{display:none;width:0;height:0} .pg-body{scrollbar-width:none} }
   .wb-list{overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
   /* 档案栏（主菜单顶部） */
   .pf-bar{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;
@@ -5140,74 +5137,6 @@ function updateMenu3D(dt, now, t){
 const ui = document.getElementById('ui');
 function el(html){ const d=document.createElement('div'); d.innerHTML=html; return d.firstElementChild; }
 
-/* ============ 通用翻页组件：长列表分页 + 底部翻页按钮，彻底避开内层滚动手势问题 ============ */
-function pagerHTML(total, cur){
-  const t = Math.max(total, 1);
-  return `<button class="pg-btn" data-act="prev" ${cur<=0?'disabled':''}>‹ 上一页</button>
-    <span class="pg-ind">${cur+1} / ${t}</span>
-    <button class="pg-btn" data-act="next" ${cur>=total-1?'disabled':''}>下一页 ›</button>`;
-}
-function bindPager(pager, onAct){
-  pager.onclick = (e)=>{
-    const b = e.target.closest('.pg-btn');
-    if(!b || b.disabled) return;
-    if(window.Sfx && Sfx.click) { try{ Sfx.click(); }catch(_){} }
-    onAct(b.dataset.act);
-  };
-}
-// 在 body 内用同宽度探测块量出一个条目的实际高度（返回布局像素，与 clientHeight 同基准）
-function measH(body, html, w){
-  const probe = document.createElement('div');
-  probe.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;width:'+w+'px;';
-  probe.innerHTML = html;
-  body.appendChild(probe);
-  let h = 44; const e = probe.firstElementChild;
-  try{ if(e) h = e.offsetHeight || 44; }catch(err){}
-  probe.remove();
-  return Math.max(h, 8);
-}
-// 估算网格每组可容纳 rows×cols 个单元格（growth 为成员高度裕量，防止超出一页被裁剪）
-function gridCap(body, cellHTML, minColW, growth){
-  const availW = Math.max((body.clientWidth||540) - 2, 100);
-  const availH = Math.max((body.clientHeight||260) - 2, 40);
-  minColW = minColW || 144;
-  const cols = Math.max(1, Math.floor((availW+10)/(minColW+10)));
-  const colW = cols>1 ? (availW - 10*(cols-1))/cols : availW;
-  const ih = measH(body, cellHTML, colW);
-  const rows = Math.max(1, Math.floor(availH/(ih*(growth||1.12))));
-  return {cols, rows, cap: cols*rows};
-}
-// 估算竖排列表每页可放条数
-function listCap(body, itemHTML, growth){
-  const availH = Math.max((body.clientHeight||260) - 2, 40);
-  const ih = measH(body, itemHTML, Math.max(body.clientWidth||540, 100));
-  return Math.max(1, Math.floor(availH/(ih*(growth||1.15))));
-}
-// 把带权重的块（头部权重=cols，单元格权重=1）按容量切成多页
-function chunkSlots(blocks, cap, headW){
-  const pages = []; let cur=[], used=0;
-  blocks.forEach(b=>{
-    const w = b.c!==undefined ? 1 : (headW||1);
-    if(cur.length && used + w > cap){ pages.push(cur); cur=[]; used=0; }
-    cur.push(b); used += w;
-  });
-  if(cur.length) pages.push(cur);
-  return pages;
-}
-// 通用分页控制器：把 item 列表按每页 cap 个切成多页，渲染第 p 页并绑定翻页
-function initPager(body, pager, items, cap, renderPage){
-  const pages = []; const c = Math.max(1, cap);
-  for(let i=0;i<items.length;i+=c) pages.push(items.slice(i, i+c));
-  if(!pages.length) pages.push([]);
-  let cur = 0;
-  const show = ()=>{ body.innerHTML=''; renderPage(pages[cur]); pager.innerHTML = pagerHTML(pages.length, cur); };
-  bindPager(pager, a=>{
-    if(a==='prev' && cur>0){ cur--; show(); }
-    else if(a==='next' && cur<pages.length-1){ cur++; show(); }
-  });
-  show();
-}
-
 // ---------- 数学公式渲染工具 ----------
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 // 把字符串里 $...$ 或 \(...\) 的公式用 KaTeX 渲染为 HTML，其余文本转义；返回安全 HTML
@@ -5272,15 +5201,13 @@ function showWrongBook(){
       <div class="sub">共 ${wb.length} 条 · 已保存在本地浏览器</div>
       ${wb.length?`<div class="btn-row" style="margin:6px 0 4px"><button class="mini-btn" id="wbClear">🗑 清空错题本</button></div>`:''}
       <div id="wbList" class="pg-body" style="text-align:left"></div>
-      <div class="pager" id="wbPager"></div>
     </div>`;
   ui.querySelector('#wbBack').onclick=()=>showMenu();
   const clr=ui.querySelector('#wbClear');
   if(clr) clr.onclick=()=>{ clearWrongBook(); Sfx.click(); showWrongBook(); };
-  const body=ui.querySelector('#wbList'), pager=ui.querySelector('#wbPager');
+  const body=ui.querySelector('#wbList');
   if(!wb.length){
     body.innerHTML=`<div class="empty" style="padding:30px 0;color:#8a8a8a;text-align:center">暂无错题，继续保持！🎉</div>`;
-    pager.style.display='none';
     return;
   }
   const items = wb.map(w=>`
@@ -5291,8 +5218,7 @@ function showWrongBook(){
         <div class="wb-ok" style="color:#1e7e46">✅ 正确答案：${renderMath(w.ans)}</div>
         ${w.why?`<div class="wb-why" style="opacity:.85">💡 ${renderMath(w.why)}</div>`:''}
       </div>`);
-  const cap = listCap(body, items[0], 1.22);          // 公式条目高度不齐，留更大裕量
-  initPager(body, pager, items, cap, page=>{ page.forEach(h=> body.appendChild(el(h))); });
+  items.forEach(h=> body.appendChild(el(h)));               // 全量渲染进滚动区：上下滑动浏览（手机旋转态由 _ts 接管触摸滚动）
 }
 function showMenu(){
   state='menu';                     // 修复：从科目/结算/章节返回时拨盘不消失
@@ -5367,10 +5293,9 @@ function showCardsPanel(){
       <h1 class="title" style="font-size:22px">🎴 卡牌图鉴</h1>
       <div class="sub" style="text-align:center">已收集 <b>${owned}</b>/${CARDS.length} · ${bonusTxt}</div>
       <div id="cardBody" class="pg-body"></div>
-      <div class="pager" id="cardPager"></div>
     </div>`;
   ui.querySelector('#backMenu').onclick=(e)=>{ e.preventDefault(); Sfx.click(); showMenu(); };
-  const body=ui.querySelector('#cardBody'), pager=ui.querySelector('#cardPager');
+  const body=ui.querySelector('#cardBody');
   // 构建"卡牌集头 + 单张卡牌"块序列
   const blocks=[];
   subs.forEach(sub=>{
@@ -5389,22 +5314,14 @@ function showCardsPanel(){
       </div>`});
     });
   });
-  const probe=(()=>{ for(const b of blocks) if(b.x!==undefined) return b.x;
-    return `<div class="card-item rar1"><div class="ce">x</div><div class="cn">名</div><div class="cd">描述</div><span class="rar-tag">普通</span></div>`; })();
-  const gc = gridCap(body, probe, 130, 1.15);
-  const pages = chunkSlots(blocks, gc.cap, gc.cols);
-  if(!pages.length) pages.push([]);
-  let cur=0;
-  const renderPage=(page)=>{
+  const renderBlocks=(blocksAll)=>{                          // 全量渲染进滚动区：上下滑动浏览
     body.innerHTML=''; let grid=null;
-    page.forEach(b=>{
+    blocksAll.forEach(b=>{
       if(b.h!==undefined){ body.appendChild(el(b.h)); grid=null; }
       else{ if(!grid){ grid=el('<div class="card-grid"></div>'); body.appendChild(grid); } grid.appendChild(el(b.x)); }
     });
   };
-  const show=()=>{ body.innerHTML=''; renderPage(pages[cur]); pager.innerHTML = pagerHTML(pages.length, cur); };
-  bindPager(pager, a=>{ if(a==='prev' && cur>0){ cur--; show(); } else if(a==='next' && cur<pages.length-1){ cur++; show(); } });
-  show();
+  renderBlocks(blocks);
 }
 function showAchPanel(){
   state='menu';
@@ -5416,21 +5333,16 @@ function showAchPanel(){
       <h1 class="title" style="font-size:22px">🏆 成就殿堂</h1>
       <div class="sub" style="text-align:center">已解锁 <b>${got}</b>/${ACHS.length} · ⭐累计 ${starSum} 星 · 🐉BOSS击杀 ${PF.stats.bossKills} · 🔥最高连击 ${PF.stats.maxCombo}</div>
       <div id="achBody" class="pg-body"></div>
-      <div class="pager" id="achPager"></div>
     </div>`;
   ui.querySelector('#backMenu').onclick=(e)=>{ e.preventDefault(); Sfx.click(); showMenu(); };
-  const body=ui.querySelector('#achBody'), pager=ui.querySelector('#achPager');
+  const body=ui.querySelector('#achBody');
   const items = ACHS.map(a=>{ const has=!!PF.achs[a.id];
     return `<div class="ach-item ${has?'got':''}">
       <span class="ai">${a.ic}</span>
       <div><div class="an">${a.name}</div><div class="ad">${a.desc}</div></div>
       <span class="as">${has?'✅':'🔒'}</span>
     </div>`; });
-  const probe = items[0] || `<div class="ach-item"><span class="ai">x</span><div><div class="an">名</div><div class="ad">描述</div></div><span class="as">✅</span></div>`;
-  const cap = listCap(body, probe, 1.12);
-  initPager(body, pager, items, cap, page=>{
-    page.forEach(h=> body.appendChild(el(h)));
-  });
+  items.forEach(h=> body.appendChild(el(h)));               // 全量渲染进滚动区：上下滑动浏览
 }
 /* 抽卡屋：100金币/次，重复卡自动转金币 */
 function showGachaPanel(result){
@@ -5598,7 +5510,6 @@ function showChapterMenu(subject){
       <h1 class="title" style="font-size:22px">${modeIcon()} ${subject}</h1>
       <div class="sub" style="text-align:center">选择小节开始闯关 · 完成可获 ⭐金币 ✨经验 🎴卡牌</div>
       <div id="chGroups" class="pg-body"></div>
-      <div class="pager" id="chPager"></div>
     </div>`;
   ui.innerHTML = html;
   ui.querySelector('#backSub').onclick=(e)=>{ e.preventDefault(); Sfx.click();
@@ -5634,17 +5545,10 @@ function showChapterMenu(subject){
         <span class="stars">${starHTML(stars)}</span></button>`, idx, unlocked});
     });
   }
-  const body = wrap, pager = ui.querySelector('#chPager');
-  // 按实测可用空间估算每页块容量：头部占一整行权重，小节按钮占1格
-  const probe = (()=>{ for(const b of blocks) if(b.x!==undefined) return b.x;
-    return `<button class="sec-btn"><span class="nm">测</span><span class="meta">0 题</span><span class="stars"></span></button>`; })();
-  const gc = gridCap(body, probe, 150, 1.16);
-  const pages = chunkSlots(blocks, gc.cap, gc.cols);
-  if(!pages.length) pages.push([]);
-  let cur = 0;
-  const renderPage = (page)=>{
+  const body = wrap;
+  const renderBlocks = (blocksAll)=>{                       // 全量渲染进滚动区：上下滑动浏览（手机旋转态由 _ts 接管触摸滚动）
     body.innerHTML=''; let grid = null;
-    page.forEach(blk=>{
+    blocksAll.forEach(blk=>{
       if(blk.h!==undefined){ const g=el('<div class="ch-group"></div>'); g.innerHTML=blk.h; body.appendChild(g); grid=null; }
       else{
         if(!grid){ grid=el('<div class="ch-group"><div class="sec-grid"></div></div>'); body.appendChild(grid); }
@@ -5654,7 +5558,7 @@ function showChapterMenu(subject){
           if(!blk.unlocked){ Sfx.wrong(); toast('🔒 先通关前面的小节解锁（相隔一节即可）'); return; }
           Sfx.click(); startSection(blk.idx);
         };
-        /* 章节云朵遮罩 + 解锁探索式飘云：锁定被云遮住；解锁的小节首次翻入该页时云朵飘散露出内容 */
+        /* 章节云朵遮罩 + 解锁探索式飘云：锁定被云遮住；解锁的小节首次滚动到可见时云朵飘散露出内容 */
         (function(b2, idx2, un2){
           const cloudKey = subject + '|' + idx2;
           if(!un2){ b2.appendChild(el('<span class="sec-cloud"></span>')); return; }
@@ -5672,9 +5576,7 @@ function showChapterMenu(subject){
       }
     });
   };
-  const show = ()=>{ body.innerHTML=''; renderPage(pages[cur]); pager.innerHTML = pagerHTML(pages.length, cur); };
-  bindPager(pager, a=>{ if(a==='prev' && cur>0){ cur--; show(); } else if(a==='next' && cur<pages.length-1){ cur++; show(); } });
-  show();
+  renderBlocks(blocks);
 }
 /* 从章节选择进入某个小节：一场自包含的闯关（答题 → 战斗 → 结算） */
 function startSection(idx){
