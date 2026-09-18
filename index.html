@@ -4243,6 +4243,65 @@ function applyRot(){
 }
 applyRot();
 addEventListener('orientationchange', ()=>{ applyRot(); });
+
+/* 手机旋转态触摸滚动：transform:rotate(90deg) 容器内浏览器原生触摸滚动不可靠，
+   手动接管——物理横向位移映射为面板逻辑竖向滚动(scrollTop+=物理x位移)，带惯性减速 */
+const _ts = { el:null, id:-1, x0:0, lx:0, lt:0, top0:0, moved:false, vel:0, sup:0 };
+let _tsGen = 0;
+function _scrollAncestor(n){
+  for(let e=n; e && e.nodeType===1 && e!==document.body; e=e.parentElement){
+    const st=getComputedStyle(e);
+    if((st.overflowY==='auto'||st.overflowY==='scroll') && e.scrollHeight>e.clientHeight+2) return e;
+  }
+  return null;
+}
+document.addEventListener('touchstart', e=>{
+  _ts.sup=0; _tsGen++;
+  if(!rot90()||_ts.el||e.touches.length!==1) return;
+  const sc=_scrollAncestor(e.target);
+  if(!sc) return;
+  _ts.el=sc; _ts.id=e.touches[0].identifier;
+  _ts.x0=_ts.lx=e.touches[0].clientX; _ts.top0=sc.scrollTop;
+  _ts.moved=false; _ts.vel=0; _ts.lt=performance.now();
+},{passive:true});
+document.addEventListener('touchmove', e=>{
+  if(!rot90()||!_ts.el) return;
+  let t=null;
+  for(const c of e.changedTouches) if(c.identifier===_ts.id) t=c;
+  if(!t) return;
+  const now=performance.now();
+  if(!_ts.moved){ if(Math.abs(t.clientX-_ts.x0)<6) return; _ts.moved=true; }
+  e.preventDefault();
+  const prev=_ts.el.scrollTop;
+  _ts.el.scrollTop=_ts.top0+(t.clientX-_ts.x0);
+  const dt=Math.max(1,now-_ts.lt); _ts.lt=now;
+  _ts.vel=_ts.vel*0.75+((_ts.el.scrollTop-prev)/dt)*0.25;
+},{passive:false});
+function _tsEnd(e){
+  if(!_ts.el) return;
+  let hit=false;
+  for(const c of e.changedTouches) if(c.identifier===_ts.id) hit=true;
+  if(!hit) return;
+  const el=_ts.el; _ts.el=null;
+  if(_ts.moved) _ts.sup=performance.now();
+  if(Math.abs(_ts.vel)>0.08){                                 // 惯性滚动
+    let v=_ts.vel; const gen=_tsGen;
+    const step=()=>{
+      if(gen!==_tsGen||Math.abs(v)<0.02) return;
+      const b=el.scrollTop;
+      el.scrollTop+=v*16;
+      if(el.scrollTop===b||el.scrollTop<=0||el.scrollTop>=el.scrollHeight-el.clientHeight-1) return;
+      v*=0.94; requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+}
+document.addEventListener('touchend', _tsEnd, {passive:true});
+document.addEventListener('touchcancel', _tsEnd, {passive:true});
+document.addEventListener('click', e=>{                        // 拖动后的残留点击抑制(部分浏览器touchmove取消默认仍会派发click)
+  if(_ts.sup && performance.now()-_ts.sup<350){ e.stopPropagation(); e.preventDefault(); _ts.sup=0; }
+}, true);
+
 const camera = new THREE.PerspectiveCamera(45, viewSize().w/viewSize().h, 0.1, 100);
 camera.position.set(0, 12.5, 9.5); camera.lookAt(0, 0, -1.5);
 
